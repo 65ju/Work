@@ -5,6 +5,7 @@ import { decryptSecret, encryptSecret } from "@/server/db/secrets";
 import { refreshAccessToken } from "@/server/auth/spotify-oauth";
 import { SpotifyHttpClient } from "@/server/spotify/client";
 import { recordUser, todayUtc, type RecordResult, type RecorderDeps } from "./recorder";
+import { ensureRecorderSchedule } from "./schedule";
 import {
   getUser,
   hasSnapshot,
@@ -32,6 +33,7 @@ export async function enrollUser(user: { id: string; displayName: string; imageU
   const db = await getDb();
   if (!db) return;
   await upsertUser(db, { ...user, refreshTokenEnc: await encryptSecret(refreshToken) });
+  await ensureRecorderSchedule().catch((err) => console.error("Could not create recorder schedule", err));
 }
 
 export async function recordAllUsers(): Promise<RecordResult[]> {
@@ -52,6 +54,7 @@ export async function ingestSnapshot(snapshot: MusicSnapshot): Promise<void> {
   const user = await getUser(db, snapshot.user.id);
   if (!user?.recording_enabled) return;
   await insertPlays(db, user.id, snapshot.recent);
+  await upsertArtists(db, [...snapshot.extraArtists, ...snapshot.followedArtists]);
   const day = todayUtc();
   if (await hasSnapshot(db, user.id, day)) return;
   if (snapshot.availability.topArtists.status !== "ok" || snapshot.availability.topTracks.status !== "ok") return;

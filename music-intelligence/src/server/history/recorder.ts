@@ -8,6 +8,7 @@ import {
   hasSnapshot,
   insertPlays,
   markRecorded,
+  missingArtistIds,
   saveSnapshot,
   updateRefreshToken,
   upsertArtists,
@@ -67,6 +68,13 @@ export async function recordUser(db: Db, userId: string, deps: RecorderDeps): Pr
       }
       snapshot = true;
     }
+
+    // Fill in genres and images for newly heard artists (single lookups; batch lookup was removed for Development Mode).
+    const missing = await missingArtistIds(db, userId, 15);
+    const found = (await Promise.all(missing.map((id) => get<SpArtist>(`/artists/${encodeURIComponent(id)}`).catch(() => null))))
+      .filter((a): a is SpArtist => a !== null)
+      .map(mapArtist);
+    await upsertArtists(db, found);
 
     await markRecorded(db, userId, null);
     return { userId, newPlays, snapshot };

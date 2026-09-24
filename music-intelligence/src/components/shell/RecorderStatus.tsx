@@ -82,6 +82,12 @@ function RecorderDetail({ data }: { data: RecorderStatusResponse }) {
             <Stat label="Recording since" value={formatDate(s.since)} />
             <Stat label="Last update" value={s.lastRecordedAt ? relativeTime(s.lastRecordedAt) : "Waiting for first run"} />
           </dl>
+          {data.schedule === "missing" && (
+            <p className="border-l-2 border-line-strong pl-3 text-xs leading-relaxed text-muted">
+              Hourly recording is not set up yet, so plays are only saved when you open the app. Add Upstash QStash to the Vercel project to
+              record in the background.
+            </p>
+          )}
           {s.lastError && (
             <p className="border-l-2 border-danger pl-3 text-xs leading-relaxed text-fg-2">
               The last recording attempt failed: {s.lastError}. Reconnecting Spotify usually fixes this.

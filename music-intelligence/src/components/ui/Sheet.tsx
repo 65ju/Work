@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import { Portal } from "@/components/ui/Portal";
 
 /** Right-hand detail panel (bottom sheet on small screens). */
 export function Sheet({ open, onClose, label, children }: { open: boolean; onClose: () => void; label: string; children: ReactNode }) {
@@ -19,7 +20,8 @@ export function Sheet({ open, onClose, label, children }: { open: boolean; onClo
   }, [open, onClose]);
 
   return (
-    <AnimatePresence>
+    <Portal>
+<AnimatePresence>
       {open && (
         <>
           <motion.div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
@@ -41,5 +43,6 @@ export function Sheet({ open, onClose, label, children }: { open: boolean; onClo
         </>
       )}
     </AnimatePresence>
+</Portal>
   );
 }

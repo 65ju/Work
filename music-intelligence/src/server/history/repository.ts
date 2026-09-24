@@ -181,3 +181,71 @@ function pickMid(images: { url: string; width: number | null }[]): string | null
   const sorted = [...images].sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
   return (sorted.find((i) => (i.width ?? 0) >= 250) ?? sorted.at(-1))!.url;
 }
+
+export type LoadedHistory = {
+  recordingSince: string;
+  rows: import("@/analytics/history-types").HistoryRow[];
+  artists: import("@/analytics/history-types").HistoryArtistMeta[];
+  snapshots: import("@/analytics/history-types").SnapshotRow[];
+};
+
+/** Everything the history analytics need for one user (last ~13 months). */
+export async function loadHistory(db: Db, userId: string): Promise<LoadedHistory | null> {
+  const user = await getUser(db, userId);
+  if (!user) return null;
+  const rows = await db.query<{
+    played_at: unknown;
+    track_id: string;
+    name: string;
+    artist_ids: string[];
+    artist_names: string[];
+    album_name: string | null;
+    image_url: string | null;
+    duration_ms: number;
+    url: string | null;
+  }>(
+    `SELECT p.played_at, p.track_id, t.name, t.artist_ids, t.artist_names, t.album_name, t.image_url, t.duration_ms, t.url
+     FROM plays p JOIN tracks t ON t.id = p.track_id
+     WHERE p.user_id = $1 AND p.played_at >= now() - interval '400 days'
+     ORDER BY p.played_at`,
+    [userId],
+  );
+  const artistIds = [...new Set(rows.flatMap((r) => r.artist_ids))];
+  const artists = artistIds.length
+    ? await db.query<{ id: string; name: string; genres: string[]; image_url: string | null; url: string | null }>(
+        `SELECT id, name, genres, image_url, url FROM artists WHERE id = ANY($1::text[])`,
+        [artistIds],
+      )
+    : [];
+  const snapshots = await db.query<{ day: string; kind: "artists" | "tracks"; time_range: "short" | "medium" | "long"; ids: string[] }>(
+    `SELECT day::text AS day, kind, time_range, ids FROM top_snapshots WHERE user_id = $1 ORDER BY day`,
+    [userId],
+  );
+  return {
+    recordingSince: user.recording_since,
+    rows: rows.map((r) => ({
+      playedAt: iso(r.played_at)!,
+      trackId: r.track_id,
+      name: r.name,
+      artistIds: r.artist_ids,
+      artistNames: r.artist_names,
+      albumName: r.album_name,
+      imageUrl: r.image_url,
+      durationMs: Number(r.duration_ms),
+      url: r.url,
+    })),
+    artists: artists.map((a) => ({ id: a.id, name: a.name, genres: a.genres ?? [], imageUrl: a.image_url, url: a.url })),
+    snapshots: snapshots.map((s) => ({ day: s.day, kind: s.kind, range: s.time_range, ids: s.ids })),
+  };
+}
+
+/** Artists heard in recorded plays that have no metadata yet (genres, image). */
+export async function missingArtistIds(db: Db, userId: string, limit: number): Promise<string[]> {
+  const rows = await db.query<{ id: string }>(
+    `SELECT DISTINCT a.id FROM plays p JOIN tracks t ON t.id = p.track_id, unnest(t.artist_ids) AS a(id)
+     WHERE p.user_id = $1 AND NOT EXISTS (SELECT 1 FROM artists x WHERE x.id = a.id) AND a.id NOT LIKE 'name:%'
+     LIMIT $2`,
+    [userId, limit],
+  );
+  return rows.map((r) => r.id);
+}

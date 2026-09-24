@@ -2,8 +2,9 @@
 
 import { motion, useScroll, useTransform } from "motion/react";
 import { ArrowRight } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRef, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import type { MusicProfile } from "@/analytics/types";
 import { OpenInSpotify } from "@/components/brand/SpotifyIcon";
 import { Equalizer } from "@/components/shell/MiniPlayer";
@@ -13,7 +14,14 @@ import { SectionLabel } from "@/components/ui/PageHeader";
 import { ProvenanceTag } from "@/components/ui/ProvenanceTag";
 import { EmptyState } from "@/components/ui/States";
 import { artistNames, relativeTime, titleCase } from "@/lib/client/format";
-import { useLoadedProfile, useNowPlaying } from "@/lib/client/queries";
+import { useHistory, useLoadedProfile, useNowPlaying } from "@/lib/client/queries";
+import { Sheet } from "@/components/ui/Sheet";
+import { ArtistDetail } from "@/features/artists/ArtistDetail";
+
+const MusicUniverse = dynamic(() => import("@/components/viz/MusicUniverse"), {
+  ssr: false,
+  loading: () => <div className="size-full animate-pulse bg-[radial-gradient(circle,rgba(255,255,255,0.06),transparent_60%)]" />,
+});
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -30,6 +38,7 @@ export function OverviewView() {
   }
   return (
     <div className="flex flex-col gap-24">
+      <Universe p={p} />
       <Hero p={p} />
       <Personality p={p} />
       <div className="grid gap-16 lg:grid-cols-[1.4fr_1fr]">
@@ -38,6 +47,39 @@ export function OverviewView() {
       </div>
       <Coverage p={p} />
     </div>
+  );
+}
+
+function Universe({ p }: { p: MusicProfile }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const close = useCallback(() => setSelected(null), []);
+  return (
+    <section className="relative -mx-5 -mt-6 h-[min(78vh,760px)] overflow-hidden border-b border-line sm:-mx-8 lg:-mx-14 lg:-mt-14">
+      <MusicUniverse profile={p} onSelectArtist={setSelected} />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
+      <div className="pointer-events-none absolute bottom-8 left-5 max-w-lg sm:left-8 lg:left-14">
+        <motion.p className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 1 }}>
+          Your music universe
+        </motion.p>
+        <motion.h2
+          className="mt-3 text-[clamp(2.25rem,5vw,4.25rem)] leading-[0.95] font-semibold tracking-[-0.045em]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.4, duration: 1.1, ease }}
+        >
+          Everything orbits <span className="font-serif font-normal tracking-[-0.02em] italic">you.</span>
+        </motion.h2>
+        <motion.p className="mt-3 text-sm text-fg-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8, duration: 1 }}>
+          The closer an artist orbits, the more they matter to you. Genres hang in the sky as constellations.
+        </motion.p>
+      </div>
+      <p className="pointer-events-none absolute right-5 bottom-8 hidden font-mono text-[10px] tracking-[0.12em] text-faint uppercase sm:block lg:right-14">
+        Drag to orbit · scroll to zoom · hover a planet
+      </p>
+      <Sheet open={selected !== null} onClose={close} label="Artist details">
+        {selected && <ArtistDetail profile={p} artistId={selected} onSelectArtist={setSelected} />}
+      </Sheet>
+    </section>
   );
 }
 
@@ -96,6 +138,7 @@ function Hero({ p }: { p: MusicProfile }) {
               <Muted>No repeats in your last 50 plays</Muted>
             )}
           </Row>
+          <MinutesRow />
           <Row label="Discovery" provenance="derived" note={discoveryMetric?.basis} delay={0.54}>
             <span className="flex items-center gap-4">
               <span className="uppercase">{s.discoveryLevel ?? "—"}</span>
@@ -132,6 +175,21 @@ function Hero({ p }: { p: MusicProfile }) {
         </motion.div>
       )}
     </section>
+  );
+}
+
+function MinutesRow() {
+  const { data } = useHistory();
+  if (!data?.available || data.history.totals["7d"].plays === 0) return null;
+  const t = data.history.totals["7d"];
+  return (
+    <Row label="Last 7 days" provenance="derived" note="Recorded by this app · estimated from track lengths" delay={0.5}>
+      <Link href="/numbers" className="group flex items-baseline gap-3">
+        <span className="numeric">{Math.round(t.ms / 60_000).toLocaleString()} min</span>
+        <span className="text-base font-normal text-muted">{t.plays} plays</span>
+        <ArrowRight className="size-4 self-center text-muted transition group-hover:translate-x-1 group-hover:text-fg" />
+      </Link>
+    </Row>
   );
 }
 
