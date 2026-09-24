@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookieOptions, OAUTH_COOKIE, SESSION_COOKIE, seal, unseal, type OAuthState } from "@/server/auth/session";
 import { exchangeCode } from "@/server/auth/spotify-oauth";
 import { approvePairing } from "@/server/auth/pairing";
+import { enrollUser } from "@/server/history/service";
 import { SpotifyHttpClient } from "@/server/spotify/client";
 import type { SpUser } from "@/server/spotify/types";
 
@@ -23,7 +24,13 @@ export async function GET(req: NextRequest) {
     const session = await exchangeCode(code, pending.verifier);
     // The user id scopes the server cache; failure here is non-fatal.
     const me = await new SpotifyHttpClient(session.accessToken).get<SpUser>("/me").catch(() => null);
-    if (me) session.userId = me.id;
+    if (me) {
+      session.userId = me.id;
+      // Starts the listening recorder for this account (no-op without a database).
+      await enrollUser({ id: me.id, displayName: me.display_name ?? me.id, imageUrl: me.images?.[0]?.url ?? null }, session.refreshToken).catch(
+        (err) => console.error("Could not enroll user for recording", err),
+      );
+    }
     const maxAge = 60 * 60 * 24 * 30;
 
     // QR login: the phone only approves; the session is handed to the desktop that showed the code.

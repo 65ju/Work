@@ -66,3 +66,27 @@ export function useAssistantStatus() {
     staleTime: Infinity,
   });
 }
+
+export type RecorderStatusResponse = {
+  available: boolean;
+  needsReconnect?: boolean;
+  status: {
+    enabled: boolean;
+    since: string;
+    lastRecordedAt: string | null;
+    lastError: string | null;
+    plays: number;
+    listenedMs: number;
+    firstPlayAt: string | null;
+  } | null;
+};
+
+export function useRecorderStatus() {
+  return useQuery({
+    queryKey: ["recorder-status"],
+    queryFn: ({ signal }) => apiGet<RecorderStatusResponse>("/api/recorder/status", signal),
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: false,
+  });
+}
