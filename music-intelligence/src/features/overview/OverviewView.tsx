@@ -18,7 +18,7 @@ import { useHistory, useLoadedProfile, useNowPlaying } from "@/lib/client/querie
 import { Sheet } from "@/components/ui/Sheet";
 import { ArtistDetail } from "@/features/artists/ArtistDetail";
 
-const MusicUniverse = dynamic(() => import("@/components/viz/MusicUniverse"), {
+const CoverGalaxy = dynamic(() => import("@/components/viz/CoverGalaxy"), {
   ssr: false,
   loading: () => <div className="size-full animate-pulse bg-[radial-gradient(circle,rgba(255,255,255,0.06),transparent_60%)]" />,
 });
@@ -53,29 +53,44 @@ export function OverviewView() {
 function Universe({ p }: { p: MusicProfile }) {
   const [selected, setSelected] = useState<string | null>(null);
   const close = useCallback(() => setSelected(null), []);
+  const ref = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  // Function transforms keep these on the JS path; the accelerated scroll-timeline path
+  // mis-measured the sticky stage and left the captions visible.
+  const introOpacity = useTransform(scrollYProgress, (v) => 1 - Math.min(1, v / 0.3));
+  const introY = useTransform(scrollYProgress, (v) => -40 * Math.min(1, v / 0.3));
+  const outroOpacity = useTransform(scrollYProgress, (v) => Math.min(1, Math.max(0, (v - 0.6) / 0.25)));
+
   return (
-    <section className="relative -mx-5 -mt-6 h-[min(78vh,760px)] overflow-hidden border-b border-line sm:-mx-8 lg:-mx-14 lg:-mt-14">
-      <MusicUniverse profile={p} onSelectArtist={setSelected} />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
-      <div className="pointer-events-none absolute bottom-8 left-5 max-w-lg sm:left-8 lg:left-14">
-        <motion.p className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 1 }}>
-          Your music universe
-        </motion.p>
-        <motion.h2
-          className="mt-3 text-[clamp(2.25rem,5vw,4.25rem)] leading-[0.95] font-semibold tracking-[-0.045em]"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.4, duration: 1.1, ease }}
-        >
-          Everything orbits <span className="font-serif font-normal tracking-[-0.02em] italic">you.</span>
-        </motion.h2>
-        <motion.p className="mt-3 text-sm text-fg-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8, duration: 1 }}>
-          The closer an artist orbits, the more they matter to you. Genres hang in the sky as constellations.
-        </motion.p>
+    // Tall section with a sticky stage: scrolling through it flies the camera into the galaxy.
+    <section ref={ref} className="relative -mx-5 -mt-6 h-[230vh] sm:-mx-8 lg:-mx-14 lg:-mt-14">
+      <div className="sticky top-0 h-dvh overflow-hidden border-b border-line">
+        <CoverGalaxy profile={p} progress={scrollYProgress} onSelectArtist={setSelected} />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-ink to-transparent" />
+        <motion.div style={{ opacity: introOpacity, y: introY }} className="pointer-events-none absolute bottom-10 left-5 max-w-xl sm:left-8 lg:left-14">
+          <motion.p className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4, duration: 1 }}>
+            Your music galaxy
+          </motion.p>
+          <motion.h2
+            className="mt-3 text-[clamp(2.5rem,6vw,5rem)] leading-[0.92] font-semibold tracking-[-0.045em]"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.6, duration: 1.1, ease }}
+          >
+            Every arm, <span className="font-serif font-normal tracking-[-0.02em] italic">a sound.</span>
+          </motion.h2>
+          <motion.p className="mt-4 text-sm text-fg-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 1 }}>
+            Each spiral arm is one of your top genres. The artists and albums that matter most sit closest to the core.
+          </motion.p>
+          <motion.p className="mt-6 font-mono text-[10px] tracking-[0.14em] text-faint uppercase" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4, duration: 1 }}>
+            Scroll to fly in · drag to turn · hover a cover
+          </motion.p>
+        </motion.div>
+        <motion.div style={{ opacity: outroOpacity }} className="pointer-events-none absolute right-5 bottom-28 max-w-sm text-right sm:right-8 lg:right-14">
+          <p className="eyebrow">Inside the arms</p>
+          <p className="mt-3 text-lg leading-snug text-fg-2">Hover any cover to bring it forward. Artists open their story, albums open in Spotify.</p>
+        </motion.div>
       </div>
-      <p className="pointer-events-none absolute right-5 bottom-8 hidden font-mono text-[10px] tracking-[0.12em] text-faint uppercase sm:block lg:right-14">
-        Drag to orbit · scroll to zoom · hover a planet
-      </p>
       <Sheet open={selected !== null} onClose={close} label="Artist details">
         {selected && <ArtistDetail profile={p} artistId={selected} onSelectArtist={setSelected} />}
       </Sheet>

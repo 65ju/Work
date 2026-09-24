@@ -39,7 +39,8 @@ Spotify only exposes the 50 most recent plays, so the app keeps its own history:
 - **Numbers**: minutes (estimated from track lengths), plays, active days, listening calendar, streaks, records, weekday × hour grid, top artists and tracks by actual plays, month by month, new artists.
 - **Phases**: weekly taste vectors (genres 60 %, artists 40 %) are split where cosine similarity drops; each phase lists its defining artists (by lift) and soundtrack. Needs about 4 recorded weeks; until then a rough "then → now" view from Spotify's three top-list windows.
 - **Wrapped**: a full-screen story for 4 weeks, 6 months or 1 year+, combining Spotify rankings with recorded minutes and streaks.
-- **Overview** opens with a 3D music universe (React Three Fiber): top artists orbit the listener by importance, genres hang as constellations.
+- **Overview** opens with a scroll-driven 3D cover galaxy (React Three Fiber): each spiral arm is a top genre, artist portraits and album covers float along the arms, the most important closest to the core.
+- **Cursor**: on mouse devices a custom "vinyl pulse" cursor (canvas) replaces the system pointer — spinning equalizer ring reacting to speed, light trail, magnetic hover labels, lens over artwork, shockwave on click. Touch devices and reduced motion keep native/simple behaviour.
 
 ## Spotify API constraints (Development Mode, after the Feb/Mar 2026 changes)
 

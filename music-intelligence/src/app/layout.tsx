@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { VinylCursor } from "@/components/cursor/VinylCursor";
 import "./globals.css";
 
 const instrument = localFont({
@@ -27,7 +28,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${instrument.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <VinylCursor />
+      </body>
     </html>
   );
 }
