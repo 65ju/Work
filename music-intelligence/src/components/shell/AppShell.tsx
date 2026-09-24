@@ -14,6 +14,7 @@ import { AmbientBackground, AmbientController } from "./Ambient";
 import { AnalyzingSequence } from "./AnalyzingSequence";
 import { MiniPlayer } from "./MiniPlayer";
 import { NAV } from "./nav";
+import { RecorderStatus } from "./RecorderStatus";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const profile = useProfile();
@@ -111,6 +112,7 @@ function SideNav() {
         })}
       </nav>
       <div className="mt-auto flex flex-col gap-4">
+        <RecorderStatus />
         <MiniPlayer />
         {data && (
           <div className="flex items-center gap-3 border-t border-line px-2 pt-4">

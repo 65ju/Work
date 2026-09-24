@@ -16,6 +16,10 @@ const schema = z.object({
   /** Shared store for QR login pairing. Vercel's Upstash integration sets the KV_* names. */
   REDIS_REST_URL: z.string().url().optional(),
   REDIS_REST_TOKEN: z.string().optional(),
+  /** Recorder triggers: Upstash QStash signing keys and/or a Vercel Cron secret. */
+  QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
+  QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

@@ -25,6 +25,15 @@ Checks: `npm run typecheck`, `npm test`, `npm run build`.
 
 QR login works like this: the computer shows a QR code and a short code. The phone opens `/pair/<id>`, the user checks that the codes match and approves with Spotify, and the computer picks up the session. The phone never receives the session, and only the browser that created the code can collect it. Codes expire after 5 minutes.
 
+## Listening history (recorder)
+
+Spotify only exposes the 50 most recent plays, so the app keeps its own history:
+
+- **Database**: add a Neon Postgres store under the Vercel project's **Storage** tab (`DATABASE_URL` is set automatically). Tables are created on first use.
+- **Recorder**: `/api/recorder/run` stores new plays for every connected account and, once per day, a copy of the top lists. Trigger it hourly with an Upstash QStash schedule (POST, cron `0 * * * *`) and set `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY`. `vercel.json` adds a daily Vercel Cron fallback, which requires `CRON_SECRET`.
+- Every profile load also stores the plays and top lists it already fetched, at no extra API cost.
+- Refresh tokens are stored encrypted (A256GCM, key derived from `SESSION_SECRET`). Users can pause recording or delete their history from the sidebar.
+
 ## Spotify API constraints (Development Mode, after the Feb/Mar 2026 changes)
 
 The app is built only on endpoints that are still available to new Development Mode apps:

@@ -4,6 +4,8 @@ import { ConfigurationError } from "@/server/env";
 import { SpotifyApiError, SessionExpiredError } from "@/server/spotify/errors";
 import { SpotifyService } from "@/server/spotify/service";
 import { clearSession, readSession, writeSession, type SpotifySession } from "./session";
+import { historyEnabled } from "@/server/db/client";
+import { storedRefreshToken, storeRefreshToken } from "@/server/history/service";
 import { refreshSession, TokenError } from "./spotify-oauth";
 
 const REFRESH_MARGIN_MS = 60_000;
@@ -17,7 +19,7 @@ export async function requireFreshSession(): Promise<SpotifySession> {
 
   let pending = refreshing.get(session.refreshToken);
   if (!pending) {
-    pending = refreshSession(session).finally(() => {
+    pending = refreshShared(session).finally(() => {
       setTimeout(() => refreshing.delete(session.refreshToken), 10_000);
     });
     refreshing.set(session.refreshToken, pending);
@@ -33,6 +35,26 @@ export async function requireFreshSession(): Promise<SpotifySession> {
     }
     throw err;
   }
+}
+
+/**
+ * With history enabled, the database holds the newest refresh token (the recorder
+ * may have rotated it), so browser sessions refresh from there first.
+ */
+async function refreshShared(session: SpotifySession): Promise<SpotifySession> {
+  if (session.userId && historyEnabled()) {
+    const stored = await storedRefreshToken(session.userId).catch(() => null);
+    if (stored) {
+      try {
+        const next = await refreshSession(session, stored);
+        if (next.refreshToken !== stored) await storeRefreshToken(session.userId, next.refreshToken).catch(() => undefined);
+        return next;
+      } catch (err) {
+        if (!(err instanceof TokenError)) throw err;
+      }
+    }
+  }
+  return refreshSession(session);
 }
 
 export async function spotifyForRequest(): Promise<SpotifyService> {

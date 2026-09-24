@@ -77,12 +77,14 @@ export async function exchangeCode(code: string, verifier: string): Promise<Spot
   return toSession(data, data.refresh_token);
 }
 
-export async function refreshSession(session: SpotifySession): Promise<SpotifySession> {
-  const data = await tokenRequest(
-    new URLSearchParams({ grant_type: "refresh_token", refresh_token: session.refreshToken }),
-  );
-  // Spotify may rotate the refresh token; keep the old one when none is returned.
-  return { ...toSession(data, data.refresh_token ?? session.refreshToken), userId: session.userId };
+/** Exchanges a refresh token. Spotify may rotate it; the old one is kept when none is returned. */
+export async function refreshAccessToken(refreshToken: string): Promise<SpotifySession> {
+  const data = await tokenRequest(new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }));
+  return toSession(data, data.refresh_token ?? refreshToken);
+}
+
+export async function refreshSession(session: SpotifySession, refreshToken = session.refreshToken): Promise<SpotifySession> {
+  return { ...(await refreshAccessToken(refreshToken)), userId: session.userId };
 }
 
 function toSession(data: TokenResponse, refreshToken: string): SpotifySession {
