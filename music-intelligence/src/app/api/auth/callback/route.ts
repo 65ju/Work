@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookieOptions, OAUTH_COOKIE, SESSION_COOKIE, seal, unseal, type OAuthState } from "@/server/auth/session";
 import { exchangeCode } from "@/server/auth/spotify-oauth";
+import { approvePairing } from "@/server/auth/pairing";
 import { SpotifyHttpClient } from "@/server/spotify/client";
 import type { SpUser } from "@/server/spotify/types";
 
@@ -23,10 +24,19 @@ export async function GET(req: NextRequest) {
     // The user id scopes the server cache; failure here is non-fatal.
     const me = await new SpotifyHttpClient(session.accessToken).get<SpUser>("/me").catch(() => null);
     if (me) session.userId = me.id;
+    const maxAge = 60 * 60 * 24 * 30;
+
+    // QR login: the phone only approves; the session is handed to the desktop that showed the code.
+    if (pending.pairId) {
+      const ok = await approvePairing(pending.pairId, await seal(session, maxAge));
+      const res = NextResponse.redirect(new URL(`/pair/${encodeURIComponent(pending.pairId)}${ok ? "?done=1" : ""}`, req.url));
+      res.cookies.delete(OAUTH_COOKIE);
+      return res;
+    }
+
     const target = new URL(pending.returnTo, req.url);
     target.searchParams.set("welcome", "1");
     const res = NextResponse.redirect(target);
-    const maxAge = 60 * 60 * 24 * 30;
     res.cookies.set(SESSION_COOKIE, await seal(session, maxAge), cookieOptions(maxAge));
     res.cookies.delete(OAUTH_COOKIE);
     return res;

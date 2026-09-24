@@ -16,6 +16,15 @@ Optional: set `ANTHROPIC_API_KEY` (and `AI_MODEL`, default `claude-opus-5`) to e
 
 Checks: `npm run typecheck`, `npm test`, `npm run build`.
 
+## Deploy on Vercel (with QR login)
+
+1. Import the GitHub repo in Vercel and set **Root Directory** to `music-intelligence`.
+2. Environment variables: `SPOTIFY_CLIENT_ID` and `SESSION_SECRET`. `SPOTIFY_REDIRECT_URI` is optional on Vercel, because it defaults to `https://<production domain>/api/auth/callback`.
+3. In the Spotify dashboard, register exactly that redirect URI.
+4. For **Log in with your phone** (QR login), add an Upstash Redis store under the project's **Storage** tab. Its `KV_REST_API_*` / `UPSTASH_REDIS_REST_*` variables are picked up automatically. Without it the QR button is hidden, because serverless instances do not share memory.
+
+QR login works like this: the computer shows a QR code and a short code. The phone opens `/pair/<id>`, the user checks that the codes match and approves with Spotify, and the computer picks up the session. The phone never receives the session, and only the browser that created the code can collect it. Codes expire after 5 minutes.
+
 ## Spotify API constraints (Development Mode, after the Feb/Mar 2026 changes)
 
 The app is built only on endpoints that are still available to new Development Mode apps:

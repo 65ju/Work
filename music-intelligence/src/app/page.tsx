@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { SpotifyIcon } from "@/components/brand/SpotifyIcon";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ConnectButton, LandingBackdrop } from "@/components/landing/LandingClient";
+import { QrLogin } from "@/components/landing/QrLogin";
+import { pairingAvailability } from "@/server/auth/pairing";
 import { readSession } from "@/server/auth/session";
 
 export const metadata: Metadata = { title: "Music Intelligence" };
@@ -18,6 +20,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
   const { error } = await searchParams;
   const session = await readSession().catch(() => null);
   const errorMessage = error ? (ERRORS[error] ?? ERRORS.login_failed) : null;
+  const qrAvailable = !session && pairingAvailability().available;
 
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden px-6 py-8 sm:px-12 sm:py-10">
@@ -54,7 +57,10 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
                 Continue to your music <ArrowUpRight className="size-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             ) : (
-              <ConnectButton />
+              <>
+                <ConnectButton />
+                {qrAvailable && <QrLogin />}
+              </>
             )}
           </div>
           {errorMessage && (

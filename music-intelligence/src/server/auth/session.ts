@@ -15,7 +15,8 @@ export type SpotifySession = {
   userId?: string;
 };
 
-export type OAuthState = { state: string; verifier: string; returnTo: string };
+/** `pairId` is set when the login was started by scanning a QR code on another device. */
+export type OAuthState = { state: string; verifier: string; returnTo: string; pairId?: string };
 
 let keyPromise: Promise<Uint8Array> | null = null;
 
@@ -45,7 +46,7 @@ export async function unseal<T>(token: string | undefined): Promise<T | null> {
   }
 }
 
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 export const cookieOptions = (maxAge: number) => ({
   httpOnly: true,
