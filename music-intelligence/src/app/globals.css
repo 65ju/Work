@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #09090a;
+  --color-ink-1: #0f0f11;
+  --color-ink-2: #161618;
+  --color-ink-3: #1e1e21;
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-fg: #eeede9;
+  --color-fg-2: #b4b2ac;
+  --color-muted: #85847f;
+  --color-faint: #56554f;
+  --color-sand: #dcc9a8;
+  --color-spotify: #1ed760;
+  --color-derived: #dcc9a8;
+  --color-algorithm: #8fb6ff;
+  --color-ai: #ff9f7f;
+  --color-danger: #ff7a6b;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: var(--font-instrument), "Iowan Old Style", Georgia, serif;
+
+  --text-display: clamp(3rem, 7.5vw, 7.25rem);
+  --text-display--line-height: 0.92;
+  --text-display--letter-spacing: -0.045em;
+  --text-headline: clamp(2rem, 4.2vw, 3.75rem);
+  --text-headline--line-height: 1;
+  --text-headline--letter-spacing: -0.035em;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+@property --ambient-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3a3026;
+}
+@property --ambient-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1c2433;
+}
+@property --ambient-3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2a2020;
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #dcc9a8;
+}
+
+:root {
+  color-scheme: dark;
+  --ambient-strength: 0.55;
+  transition:
+    --ambient-1 1.8s var(--ease-out-expo),
+    --ambient-2 1.8s var(--ease-out-expo),
+    --ambient-3 1.8s var(--ease-out-expo),
+    --accent 1.2s var(--ease-out-expo);
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-ink);
+  color: var(--color-fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--color-fg);
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@layer components {
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .hairline {
+    border-color: var(--color-line);
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: -50%;
+    pointer-events: none;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    animation: grain 9s steps(8) infinite;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .mask-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-4%, 3%); }
+  50% { transform: translate(3%, -5%); }
+  75% { transform: translate(-2%, -2%); }
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(-8%, -6%, 0) scale(1); }
+  50% { transform: translate3d(6%, 4%, 0) scale(1.12); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(8%, 6%, 0) scale(1.05); }
+  50% { transform: translate3d(-6%, -3%, 0) scale(0.95); }
+}
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.03) 25%, rgb(255 255 255 / 0.07) 50%, rgb(255 255 255 / 0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
