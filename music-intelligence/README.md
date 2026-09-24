@@ -30,9 +30,16 @@ QR login works like this: the computer shows a QR code and a short code. The pho
 Spotify only exposes the 50 most recent plays, so the app keeps its own history:
 
 - **Database**: add a Neon Postgres store under the Vercel project's **Storage** tab (`DATABASE_URL` is set automatically). Tables are created on first use.
-- **Recorder**: `/api/recorder/run` stores new plays for every connected account and, once per day, a copy of the top lists. Trigger it hourly with an Upstash QStash schedule (POST, cron `0 * * * *`) and set `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY`. `vercel.json` adds a daily Vercel Cron fallback, which requires `CRON_SECRET`.
+- **Recorder**: `/api/recorder/run` stores new plays for every connected account and, once per day, a copy of the top lists. Add Upstash QStash to the Vercel project (Storage tab): with `QSTASH_TOKEN` set, the app creates its own hourly schedule; `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY` verify the calls. `vercel.json` adds a daily Vercel Cron fallback, which requires `CRON_SECRET`.
 - Every profile load also stores the plays and top lists it already fetched, at no extra API cost.
 - Refresh tokens are stored encrypted (A256GCM, key derived from `SESSION_SECRET`). Users can pause recording or delete their history from the sidebar.
+
+## Views built on the history
+
+- **Numbers**: minutes (estimated from track lengths), plays, active days, listening calendar, streaks, records, weekday × hour grid, top artists and tracks by actual plays, month by month, new artists.
+- **Phases**: weekly taste vectors (genres 60 %, artists 40 %) are split where cosine similarity drops; each phase lists its defining artists (by lift) and soundtrack. Needs about 4 recorded weeks; until then a rough "then → now" view from Spotify's three top-list windows.
+- **Wrapped**: a full-screen story for 4 weeks, 6 months or 1 year+, combining Spotify rankings with recorded minutes and streaks.
+- **Overview** opens with a 3D music universe (React Three Fiber): top artists orbit the listener by importance, genres hang as constellations.
 
 ## Spotify API constraints (Development Mode, after the Feb/Mar 2026 changes)
 

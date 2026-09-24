@@ -3,6 +3,7 @@ import { z } from "zod";
 import { readSession } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { deleteUser, recordingStatus, setRecordingEnabled } from "@/server/history/repository";
+import { ensureRecorderSchedule } from "@/server/history/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,9 @@ export async function GET() {
   const ctx = await context();
   if ("error" in ctx) return ctx.error;
   if (!ctx.db) return NextResponse.json({ available: false, status: null });
-  if (!ctx.session.userId) return NextResponse.json({ available: true, status: null, needsReconnect: true });
-  return NextResponse.json({ available: true, status: await recordingStatus(ctx.db, ctx.session.userId) });
+  const schedule = await ensureRecorderSchedule().catch(() => "missing" as const);
+  if (!ctx.session.userId) return NextResponse.json({ available: true, schedule, status: null, needsReconnect: true });
+  return NextResponse.json({ available: true, schedule, status: await recordingStatus(ctx.db, ctx.session.userId) });
 }
 
 const patch = z.object({ enabled: z.boolean() });

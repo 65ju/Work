@@ -19,6 +19,9 @@ const schema = z.object({
   /** Recorder triggers: Upstash QStash signing keys and/or a Vercel Cron secret. */
   QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
   QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+  /** With a QStash token the app creates its own hourly recorder schedule. */
+  QSTASH_TOKEN: z.string().optional(),
+  QSTASH_URL: z.string().url().optional(),
   CRON_SECRET: z.string().optional(),
 });
 

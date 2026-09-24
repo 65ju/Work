@@ -74,3 +74,17 @@ describe("recordUser", () => {
     expect((await getUser(db, "u1"))?.last_error).toBe("invalid_grant");
   });
 });
+
+describe("loadHistory", () => {
+  it("joins plays with track and artist metadata", async () => {
+    const { loadHistory, upsertArtists, missingArtistIds } = await import("./repository");
+    await insertPlays(db, "u1", [play("t1", new Date().toISOString())]);
+    expect(await missingArtistIds(db, "u1", 10)).toEqual(["a1"]);
+    await upsertArtists(db, [{ id: "a1", name: "A1", url: null, images: [], genres: ["trap"] }]);
+    const loaded = await loadHistory(db, "u1");
+    expect(loaded?.rows).toHaveLength(1);
+    expect(loaded?.rows[0]?.artistIds).toEqual(["a1"]);
+    expect(loaded?.artists[0]?.genres).toEqual(["trap"]);
+    expect(await missingArtistIds(db, "u1", 10)).toEqual([]);
+  });
+});

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AssistantPanel } from "./AssistantPanel";
+import { Portal } from "@/components/ui/Portal";
 
 export function AssistantLauncher() {
   const [open, setOpen] = useState(false);
@@ -24,6 +25,7 @@ export function AssistantLauncher() {
 
   return (
     <>
+      <Portal>
       <motion.button
         ref={btn}
         style={{ x, y }}
@@ -43,8 +45,10 @@ export function AssistantLauncher() {
       >
         <span className="text-[var(--accent)]">✦</span> Ask your music
       </motion.button>
+      </Portal>
 
-      <AnimatePresence>
+      <Portal>
+<AnimatePresence>
         {open && (
           <>
             <motion.div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
@@ -72,6 +76,7 @@ export function AssistantLauncher() {
           </>
         )}
       </AnimatePresence>
+</Portal>
     </>
   );
 }

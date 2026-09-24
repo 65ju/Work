@@ -10,10 +10,11 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { Artwork } from "@/components/ui/Artwork";
 import { ErrorState } from "@/components/ui/States";
 import { useProfile } from "@/lib/client/queries";
+import { Portal } from "@/components/ui/Portal";
 import { AmbientBackground, AmbientController } from "./Ambient";
 import { AnalyzingSequence } from "./AnalyzingSequence";
 import { MiniPlayer } from "./MiniPlayer";
-import { NAV } from "./nav";
+import { NAV, NAV_GROUPS } from "./nav";
 import { RecorderStatus } from "./RecorderStatus";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : profile.data && sequenceDone ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.985, filter: "blur(8px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none", transform: "none" } }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
           className="lg:grid lg:grid-cols-[248px_1fr]"
         >
@@ -74,44 +75,49 @@ function SideNav() {
   const isActive = useActive();
   const { data } = useProfile();
   return (
-    <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-ink/40 px-5 py-8 backdrop-blur-xl lg:flex">
+    <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-ink/40 px-5 pt-8 pb-6 backdrop-blur-xl lg:flex">
       <Link href="/overview" className="px-2 text-fg">
         <Wordmark />
       </Link>
-      <nav className="mt-12 flex flex-col gap-0.5" aria-label="Main">
-        {NAV.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              className={`group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13.5px] transition-colors ${
-                active ? "text-fg" : "text-muted hover:text-fg"
-              }`}
-            >
-              {active && (
-                <motion.span
-                  layoutId="nav-indicator"
-                  className="absolute inset-0 rounded-md bg-white/[0.06]"
-                  transition={{ type: "spring", stiffness: 380, damping: 34 }}
-                />
-              )}
-              {active && (
-                <motion.span
-                  layoutId="nav-bar"
-                  className="absolute top-2 bottom-2 left-0 w-[2px] rounded-full bg-[var(--accent)]"
-                  transition={{ type: "spring", stiffness: 380, damping: 34 }}
-                />
-              )}
-              <Icon className="relative size-4 opacity-80" strokeWidth={1.6} />
-              <span className="relative">{item.label}</span>
-            </Link>
-          );
-        })}
+      <nav className="scrollbar-none mt-8 flex min-h-0 flex-col gap-4 overflow-y-auto" aria-label="Main">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="flex flex-col gap-0.5">
+            <p className="px-3 pb-1 font-mono text-[9.5px] tracking-[0.18em] text-faint uppercase">{group.label}</p>
+            {group.items.map((item) => {
+              const active = isActive(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center gap-3 rounded-md px-3 py-[5px] text-[13.5px] transition-colors ${
+                    active ? "text-fg" : "text-muted hover:text-fg"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-indicator"
+                      className="absolute inset-0 rounded-md bg-white/[0.06]"
+                      transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                    />
+                  )}
+                  {active && (
+                    <motion.span
+                      layoutId="nav-bar"
+                      className="absolute top-2 bottom-2 left-0 w-[2px] rounded-full bg-[var(--accent)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                    />
+                  )}
+                  <Icon className="relative size-4 opacity-80" strokeWidth={1.6} />
+                  <span className="relative">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-      <div className="mt-auto flex flex-col gap-4">
+      <div className="mt-auto flex flex-col gap-3 pt-6">
         <RecorderStatus />
         <MiniPlayer />
         {data && (
@@ -153,6 +159,7 @@ function MobileNav() {
 
   return (
     <>
+      <Portal>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden">
         <MiniPlayer variant="bar" />
         <nav className="grid grid-cols-5" aria-label="Main">
@@ -174,6 +181,8 @@ function MobileNav() {
           </button>
         </nav>
       </div>
+      </Portal>
+      <Portal>
       <AnimatePresence>
         {open && (
           <>
@@ -214,6 +223,7 @@ function MobileNav() {
           </>
         )}
       </AnimatePresence>
+      </Portal>
     </>
   );
 }

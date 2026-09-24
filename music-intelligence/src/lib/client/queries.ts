@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { AssistantStatus } from "@/ai/types";
+import type { HistoryResponse } from "@/analytics/history-types";
 import type { MusicProfile } from "@/analytics/types";
 import type { Playback } from "@/domain/types";
 import type { DiscoveryResult } from "@/recommendations/types";
@@ -70,6 +71,8 @@ export function useAssistantStatus() {
 export type RecorderStatusResponse = {
   available: boolean;
   needsReconnect?: boolean;
+  /** managed = the app keeps the hourly schedule itself; missing = only daily/on-open recording. */
+  schedule?: "managed" | "manual" | "missing";
   status: {
     enabled: boolean;
     since: string;
@@ -88,5 +91,15 @@ export function useRecorderStatus() {
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
     retry: false,
+  });
+}
+
+export function useHistory() {
+  return useQuery({
+    queryKey: ["history"],
+    queryFn: ({ signal }) =>
+      apiGet<HistoryResponse>(`/api/history?tz=${encodeURIComponent(timezone())}`, signal),
+    staleTime: 2 * 60_000,
+    retry,
   });
 }

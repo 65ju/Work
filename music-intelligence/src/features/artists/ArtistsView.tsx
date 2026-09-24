@@ -9,6 +9,7 @@ import { Artwork } from "@/components/ui/Artwork";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProvenanceTag } from "@/components/ui/ProvenanceTag";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Portal } from "@/components/ui/Portal";
 import { Sheet } from "@/components/ui/Sheet";
 import { EmptyState, Skeleton } from "@/components/ui/States";
 import { pad2, pickImage, RANGE_LABEL, titleCase } from "@/lib/client/format";
@@ -161,6 +162,7 @@ function Ranking({ p, range, compare, onSelect }: { p: MusicProfile; range: Time
       </ol>
 
       {/* Cursor-following artwork preview (desktop pointer only) */}
+      <Portal>
       <AnimatePresence>
         {hovered && pickImage(hovered.artist.images) && (
           <motion.div
@@ -175,6 +177,7 @@ function Ranking({ p, range, compare, onSelect }: { p: MusicProfile; range: Time
           </motion.div>
         )}
       </AnimatePresence>
+      </Portal>
     </LayoutGroup>
   );
 }
