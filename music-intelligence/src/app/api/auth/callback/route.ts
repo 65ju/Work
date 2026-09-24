@@ -1,0 +1,37 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { cookieOptions, OAUTH_COOKIE, SESSION_COOKIE, seal, unseal, type OAuthState } from "@/server/auth/session";
+import { exchangeCode } from "@/server/auth/spotify-oauth";
+import { SpotifyHttpClient } from "@/server/spotify/client";
+import type { SpUser } from "@/server/spotify/types";
+
+export async function GET(req: NextRequest) {
+  const params = req.nextUrl.searchParams;
+  const fail = (code: string) => {
+    const res = NextResponse.redirect(new URL(`/?error=${code}`, req.url));
+    res.cookies.delete(OAUTH_COOKIE);
+    return res;
+  };
+
+  if (params.get("error")) return fail(params.get("error") === "access_denied" ? "access_denied" : "login_failed");
+
+  const pending = await unseal<OAuthState>(req.cookies.get(OAUTH_COOKIE)?.value);
+  const code = params.get("code");
+  if (!pending || !code || params.get("state") !== pending.state) return fail("state_mismatch");
+
+  try {
+    const session = await exchangeCode(code, pending.verifier);
+    // The user id scopes the server cache; failure here is non-fatal.
+    const me = await new SpotifyHttpClient(session.accessToken).get<SpUser>("/me").catch(() => null);
+    if (me) session.userId = me.id;
+    const target = new URL(pending.returnTo, req.url);
+    target.searchParams.set("welcome", "1");
+    const res = NextResponse.redirect(target);
+    const maxAge = 60 * 60 * 24 * 30;
+    res.cookies.set(SESSION_COOKIE, await seal(session, maxAge), cookieOptions(maxAge));
+    res.cookies.delete(OAUTH_COOKIE);
+    return res;
+  } catch (err) {
+    console.error(err);
+    return fail("login_failed");
+  }
+}
