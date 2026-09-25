@@ -1,290 +1,161 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Check, Moon, Plus, Settings2, Sun, Trash2, X } from "lucide-react";
-import { load, save, uid } from "./lib/storage";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, MotionConfig } from "framer-motion";
+import { Eye, Moon, Settings2, Sun } from "lucide-react";
+import { DEFAULT_PREFS, normalizePrefs, possessive, WIDGETS, type Prefs, type WidgetId, type WidgetSize } from "./prefs";
+import { usePersistent } from "./lib/usePersistent";
+import { WidgetCard } from "./components/WidgetCard";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { EndPill } from "./components/EndPill";
+import { Alerts } from "./components/Alerts";
+import { Toasts } from "./components/Toasts";
+import { ClockWidget } from "./widgets/ClockWidget";
+import { WorkdayWidget } from "./widgets/WorkdayWidget";
+import { WeekWidget } from "./widgets/WeekWidget";
+import { FocusWidget } from "./widgets/FocusWidget";
+import { BoardWidget } from "./widgets/BoardWidget";
+import { TodoWidget } from "./widgets/TodoWidget";
+import { LinksWidget } from "./widgets/LinksWidget";
 
-interface Note {
-  id: string;
-  text: string;
-  done: boolean;
-  createdAt: number;
-}
-
-interface Prefs {
-  theme: "dark" | "light";
-  start: string; // "08:00"
-  end: string; // "17:00"
-}
-
-const DEFAULT_PREFS: Prefs = { theme: "dark", start: "08:00", end: "17:00" };
-
-const dateFmt = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-
-function toMinutes(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + (m || 0);
-}
-
-function greeting(h: number) {
-  if (h >= 5 && h < 11) return "Guten Morgen";
-  if (h >= 11 && h < 17) return "Guten Tag";
-  if (h >= 17 && h < 22) return "Guten Abend";
-  return "Gute Nacht";
-}
-
-function useNow() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    let t = 0;
-    const tick = () => {
-      setNow(new Date());
-      t = window.setTimeout(tick, 1000 - (Date.now() % 1000) + 5);
-    };
-    t = window.setTimeout(tick, 1000 - (Date.now() % 1000) + 5);
-    return () => window.clearTimeout(t);
-  }, []);
-  return now;
-}
+const NEXT_SIZE: Record<WidgetSize, WidgetSize> = { s: "m", m: "l", l: "s" };
 
 export default function App() {
-  const now = useNow();
-  const [prefs, setPrefs] = useState<Prefs>(() => ({ ...DEFAULT_PREFS, ...load<Partial<Prefs>>("prefs", {}) }));
-  const [notes, setNotes] = useState<Note[]>(() => load<Note[]>("v2-notes", []));
-  const [showSettings, setShowSettings] = useState(false);
-
-  useEffect(() => save("prefs", prefs), [prefs]);
-  useEffect(() => save("v2-notes", notes), [notes]);
+  const [stored, setStored] = usePersistent<Prefs>("prefs-v3", DEFAULT_PREFS);
+  const prefs = useMemo(() => normalizePrefs(stored), [stored]);
+  const setPrefs = useCallback((fn: (p: Prefs) => Prefs) => setStored((s) => fn(normalizePrefs(s))), [setStored]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    document.documentElement.dataset.theme = prefs.theme;
-  }, [prefs.theme]);
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  const title = `${possessive(prefs.name)} Dashboard`;
 
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const ss = String(now.getSeconds()).padStart(2, "0");
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = prefs.theme;
+    root.style.setProperty("--accent", prefs.accent);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", prefs.theme === "dark" ? "#0d0f14" : "#f3f4f7");
+  }, [prefs.theme, prefs.accent]);
+
+  useEffect(() => {
+    if (!document.title.includes("Fokus")) document.title = title;
+  }, [title]);
+
+  const visible = prefs.order.filter((id) => !prefs.hidden.includes(id));
+  const hiddenCount = prefs.hidden.length;
+
+  const swap = useCallback(
+    (a: WidgetId, b: WidgetId) =>
+      setPrefs((p) => {
+        const order = [...p.order];
+        const i = order.indexOf(a);
+        const j = order.indexOf(b);
+        if (i < 0 || j < 0) return p;
+        [order[i], order[j]] = [order[j], order[i]];
+        return { ...p, order };
+      }),
+    [setPrefs],
+  );
+
+  const step = useCallback(
+    (id: WidgetId, dir: -1 | 1) =>
+      setPrefs((p) => {
+        const vis = p.order.filter((w) => !p.hidden.includes(w));
+        const other = vis[vis.indexOf(id) + dir];
+        if (!other) return p;
+        const order = [...p.order];
+        const i = order.indexOf(id);
+        const j = order.indexOf(other);
+        [order[i], order[j]] = [order[j], order[i]];
+        return { ...p, order };
+      }),
+    [setPrefs],
+  );
+
+  const resize = useCallback((id: WidgetId) => setPrefs((p) => ({ ...p, sizes: { ...p.sizes, [id]: NEXT_SIZE[p.sizes[id]] } })), [setPrefs]);
+  const hide = useCallback((id: WidgetId) => setPrefs((p) => ({ ...p, hidden: [...p.hidden, id] })), [setPrefs]);
+
+  const render = (id: WidgetId) => {
+    switch (id) {
+      case "clock":
+        return <ClockWidget name={prefs.name} />;
+      case "workday":
+        return <WorkdayWidget prefs={prefs} />;
+      case "week":
+        return <WeekWidget prefs={prefs} />;
+      case "focus":
+        return <FocusWidget title={title} />;
+      case "todo":
+        return <TodoWidget />;
+      case "board":
+        return <BoardWidget />;
+      case "links":
+        return <LinksWidget />;
+    }
+  };
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <span className="brand">Julian · Dashboard</span>
-        <div className="flex gap-2">
-          <button
-            className="icon-btn"
-            aria-label={prefs.theme === "dark" ? "Helles Design" : "Dunkles Design"}
-            onClick={() => setPrefs((p) => ({ ...p, theme: p.theme === "dark" ? "light" : "dark" }))}
-          >
-            {prefs.theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button className="icon-btn" aria-label="Arbeitszeit einstellen" onClick={() => setShowSettings((s) => !s)}>
-            <Settings2 size={18} />
-          </button>
-        </div>
-      </header>
-
-      <AnimatePresence>
-        {showSettings && (
-          <motion.div
-            className="card settings"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <label>
-              Arbeitsbeginn
-              <input type="time" value={prefs.start} onChange={(e) => setPrefs((p) => ({ ...p, start: e.target.value || p.start }))} />
-            </label>
-            <label>
-              Feierabend
-              <input type="time" value={prefs.end} onChange={(e) => setPrefs((p) => ({ ...p, end: e.target.value || p.end }))} />
-            </label>
-            <button className="icon-btn ml-auto" aria-label="Schließen" onClick={() => setShowSettings(false)}>
-              <X size={18} />
+    <MotionConfig reducedMotion="user">
+      <div className="bg" aria-hidden />
+      <div className="shell">
+        <header className={`topbar ${scrolled ? "is-scrolled" : ""}`}>
+          <div className="brand">
+            <span className="brand-mark" aria-hidden>
+              {(prefs.name.trim() || "J").slice(0, 1).toUpperCase()}
+            </span>
+            <span className="brand-name">{title}</span>
+          </div>
+          <EndPill prefs={prefs} />
+          <div className="topbar-tools">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={prefs.theme === "dark" ? "Helles Design" : "Dunkles Design"}
+              title="Design wechseln"
+              onClick={() => setPrefs((p) => ({ ...p, theme: p.theme === "dark" ? "light" : "dark" }))}
+            >
+              {prefs.theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <button
+              type="button"
+              className={`icon-btn ${settingsOpen ? "is-on" : ""}`}
+              aria-label="Einstellungen"
+              aria-expanded={settingsOpen}
+              title="Einstellungen"
+              onClick={() => setSettingsOpen((s) => !s)}
+            >
+              <Settings2 size={17} />
+            </button>
+          </div>
+        </header>
 
-      <main className="grid-main">
-        <section className="card clock-card" aria-label="Uhrzeit">
-          <p className="muted">{greeting(now.getHours())}, Julian</p>
-          <time className="clock" dateTime={now.toISOString()}>
-            {hh}:{mm}
-            <span className="clock-sec">{ss}</span>
-          </time>
-          <p className="date">{dateFmt.format(now)}</p>
-        </section>
+        <AnimatePresence>{settingsOpen && <SettingsPanel prefs={prefs} setPrefs={setPrefs} onClose={() => setSettingsOpen(false)} />}</AnimatePresence>
 
-        <Workday now={now} start={prefs.start} end={prefs.end} />
+        <main className="grid-main">
+          {visible.map((id) => (
+            <WidgetCard key={id} id={id} size={prefs.sizes[id]} onSwap={swap} onStep={step} onResize={resize} onHide={hide}>
+              {render(id)}
+            </WidgetCard>
+          ))}
+        </main>
 
-        <Notes notes={notes} setNotes={setNotes} />
-      </main>
-    </div>
-  );
-}
-
-function Workday({ now, start, end }: { now: Date; start: string; end: string }) {
-  const s = toMinutes(start);
-  const e = toMinutes(end);
-  const cur = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  const total = Math.max(1, e - s);
-  const progress = Math.min(1, Math.max(0, (cur - s) / total));
-  const left = e - cur;
-  const weekend = now.getDay() === 0 || now.getDay() === 6;
-
-  let headline: string;
-  let sub: string;
-  let state: "before" | "work" | "soon" | "done";
-  if (weekend) {
-    headline = "Wochenende";
-    sub = "Kein Countdown heute.";
-    state = "done";
-  } else if (cur < s) {
-    headline = `Start um ${start}`;
-    sub = `in ${fmtDuration(s - cur)}`;
-    state = "before";
-  } else if (left > 0) {
-    headline = fmtDuration(left);
-    sub = `bis Feierabend um ${end} Uhr`;
-    state = left <= 30 ? "soon" : "work";
-  } else {
-    headline = "Feierabend";
-    sub = `seit ${end} Uhr`;
-    state = "done";
-  }
-
-  const ticks = [];
-  for (let m = Math.ceil(s / 60) * 60; m <= e; m += 60) ticks.push(m);
-
-  return (
-    <section className={`card workday state-${state}`} aria-label="Arbeitstag">
-      <p className="muted">Arbeitstag {start} – {end}</p>
-      <p className="countdown">{headline}</p>
-      <p className="muted">{sub}</p>
-      <div className="track" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}>
-        <motion.div className="fill" initial={{ scaleX: 0 }} animate={{ scaleX: progress }} transition={{ type: "spring", stiffness: 60, damping: 20 }} />
-      </div>
-      <div className="ticks">
-        {ticks.map((m) => (
-          <span key={m} style={{ left: `${((m - s) / total) * 100}%` }} className={m === e ? "tick-end" : ""}>
-            {String(m / 60).padStart(2, "0")}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function fmtDuration(min: number) {
-  const m = Math.ceil(min);
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return h ? `${h} h ${String(r).padStart(2, "0")} min` : `${r} min`;
-}
-
-function Notes({ notes, setNotes }: { notes: Note[]; setNotes: Dispatch<SetStateAction<Note[]>> }) {
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const sorted = useMemo(() => [...notes].sort((a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt), [notes]);
-
-  const add = () => {
-    const text = draft.trim();
-    if (!text) return;
-    setNotes((n) => [{ id: uid(), text, done: false, createdAt: Date.now() }, ...n]);
-    setDraft("");
-    inputRef.current?.focus();
-  };
-
-  return (
-    <section className="card notes" aria-label="Notizen">
-      <div className="notes-head">
-        <h2>Notizen</h2>
-        {notes.length > 0 && <span className="muted">{notes.filter((n) => !n.done).length} offen</span>}
-      </div>
-      <div className="composer">
-        <textarea
-          ref={inputRef}
-          value={draft}
-          rows={1}
-          placeholder="Neue Notiz … (Enter zum Speichern)"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              add();
-            }
-          }}
-        />
-        <button className="add-btn" onClick={add} disabled={!draft.trim()} aria-label="Notiz hinzufügen">
-          <Plus size={18} />
-        </button>
-      </div>
-
-      {notes.length === 0 ? (
-        <p className="empty">Noch keine Notizen.</p>
-      ) : (
-        <ul className="note-list">
-          <AnimatePresence initial={false}>
-            {sorted.map((n) => (
-              <motion.li
-                key={n.id}
-                layout
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.18 }}
-                className={`note ${n.done ? "is-done" : ""}`}
-              >
-                <button
-                  className="check"
-                  aria-label={n.done ? "Als offen markieren" : "Als erledigt markieren"}
-                  onClick={() => setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, done: !x.done } : x)))}
-                >
-                  {n.done && <Check size={14} strokeWidth={3} />}
-                </button>
-                <EditableText text={n.text} onChange={(text) => setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, text } : x)))} />
-                <button className="icon-btn ghost" aria-label="Löschen" onClick={() => setNotes((all) => all.filter((x) => x.id !== n.id))}>
-                  <Trash2 size={16} />
-                </button>
-              </motion.li>
+        {hiddenCount > 0 && (
+          <div className="hidden-bar">
+            <span className="muted">Ausgeblendet:</span>
+            {prefs.hidden.map((id) => (
+              <button key={id} type="button" className="chip" onClick={() => setPrefs((p) => ({ ...p, hidden: p.hidden.filter((h) => h !== id) }))}>
+                <Eye size={13} /> {WIDGETS[id].title}
+              </button>
             ))}
-          </AnimatePresence>
-        </ul>
-      )}
-    </section>
-  );
-}
+          </div>
+        )}
 
-function EditableText({ text, onChange }: { text: string; onChange: (t: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(text);
-  useEffect(() => setValue(text), [text]);
-  if (!editing)
-    return (
-      <p className="note-text" onClick={() => setEditing(true)} title="Klicken zum Bearbeiten">
-        {text}
-      </p>
-    );
-  const commit = () => {
-    setEditing(false);
-    if (value.trim() && value.trim() !== text) onChange(value.trim());
-    else setValue(text);
-  };
-  return (
-    <textarea
-      className="note-edit"
-      autoFocus
-      value={value}
-      rows={Math.min(6, value.split("\n").length)}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          commit();
-        } else if (e.key === "Escape") {
-          setValue(text);
-          setEditing(false);
-        }
-      }}
-    />
+        <footer className="foot">Widgets am Griff ziehen und auf einem anderen ablegen · Zettel frei herumwerfen · alles bleibt lokal in deinem Browser</footer>
+      </div>
+      <Alerts prefs={prefs} />
+      <Toasts />
+    </MotionConfig>
   );
 }
