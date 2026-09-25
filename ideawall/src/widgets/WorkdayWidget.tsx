@@ -1,6 +1,7 @@
-import { Coffee, Flag, PartyPopper, Sunrise } from "lucide-react";
+import { Coffee, Flag, PartyPopper, Sunrise, UtensilsCrossed } from "lucide-react";
 import { useNow } from "../lib/clock";
-import { dur, getDayInfo, PHASE_META, toHHMM } from "../lib/time";
+import { dur, durShort, getDayInfo, PHASE_META, toHHMM } from "../lib/time";
+import { Rolling } from "../components/Rolling";
 import type { Prefs } from "../prefs";
 
 export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
@@ -19,26 +20,26 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
 
   let big: string;
   let label: string;
-  if (d.phase === "weekend") {
-    big = "Wochenende";
-    label = "Kein Countdown heute – genieß die Zeit.";
-  } else if (d.phase === "done") {
-    big = "Feierabend";
-    label = `seit ${toHHMM(d.end)} Uhr – gut gemacht!`;
-  } else if (d.phase === "break") {
-    big = dur(d.be - d.cur);
-    label = `Mittagspause · weiter um ${toHHMM(d.be)}`;
-  } else if (d.next) {
-    big = dur(d.next.at - d.cur);
-    label =
-      d.next.label === "Arbeitsbeginn"
-        ? `bis Arbeitsbeginn um ${toHHMM(d.next.at)}`
-        : d.next.label === "Mittagspause"
-          ? `bis zur Mittagspause um ${toHHMM(d.next.at)}`
-          : `bis Feierabend um ${toHHMM(d.next.at)}`;
-  } else {
-    big = "–";
-    label = "";
+  switch (d.phase) {
+    case "weekend":
+      big = "Wochenende";
+      label = "";
+      break;
+    case "done":
+      big = "Feierabend";
+      label = `seit ${toHHMM(d.end)}`;
+      break;
+    case "break":
+      big = dur(d.be - d.cur);
+      label = `Mittagspause bis ${toHHMM(d.be)}`;
+      break;
+    case "before":
+      big = dur(d.start - d.cur);
+      label = `bis Arbeitsbeginn`;
+      break;
+    default:
+      big = dur((d.next?.at ?? d.end) - d.cur);
+      label = d.next?.label === "Mittagspause" ? "bis zur Mittagspause" : "bis Feierabend";
   }
 
   const hours: number[] = [];
@@ -53,18 +54,16 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
             {meta.label}
           </span>
           <p className="wd-count">
-            {d.phase === "break" && <Coffee size={26} />}
-            {d.phase === "before" && <Sunrise size={26} />}
-            {big}
+            {d.phase === "break" && <UtensilsCrossed size={26} className="wd-icon" />}
+            {d.phase === "before" && <Sunrise size={26} className="wd-icon" />}
+            <Rolling text={big} />
           </p>
-          <p className="muted">{label}</p>
+          {label && <p className="muted">{label}</p>}
         </div>
         <div className="wd-end">
-          <span className="wd-end-label">
-            {d.phase === "done" ? <PartyPopper size={14} /> : <Flag size={14} />} Feierabend
-          </span>
+          <span className="wd-end-label">{d.phase === "done" ? <PartyPopper size={14} /> : <Flag size={14} />} Feierabend</span>
           <span className="wd-end-time">{toHHMM(d.end)}</span>
-          <span className="muted">{d.phase === "done" ? "geschafft" : d.phase === "weekend" ? "Montag wieder" : `in ${dur(d.toEnd)}`}</span>
+          {d.phase !== "done" && d.phase !== "weekend" && <span className="muted">in {durShort(d.toEnd)}</span>}
         </div>
       </div>
 
@@ -73,7 +72,7 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
           <div className="tl-base" style={{ background: grad }} />
           <div className="tl-done" style={{ background: grad, clipPath: `inset(0 ${100 - done}% 0 0 round 99px)` }} />
           {d.hasBreak && (
-            <div className="tl-break" style={{ left: `${b1}%`, width: `${b2 - b1}%` }}>
+            <div className={`tl-break ${d.phase === "break" ? "is-now" : ""}`} style={{ left: `${b1}%`, width: `${b2 - b1}%` }}>
               <Coffee size={11} />
             </div>
           )}
@@ -103,14 +102,14 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
           <dt>Gearbeitet</dt>
           <dd>{dur(d.worked)}</dd>
         </div>
-        <div>
-          <dt>Mittagspause</dt>
+        <div className={d.phase === "break" ? "is-break" : ""}>
+          <dt>Pause</dt>
           <dd>
-            {toHHMM(d.bs)} – {toHHMM(d.be)}
+            {toHHMM(d.bs)}–{toHHMM(d.be)}
           </dd>
         </div>
         <div>
-          <dt>Noch zu tun</dt>
+          <dt>Übrig</dt>
           <dd>{dur(d.planned - d.worked)}</dd>
         </div>
       </dl>

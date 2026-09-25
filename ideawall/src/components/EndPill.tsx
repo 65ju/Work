@@ -1,36 +1,49 @@
 import { Coffee, Flag, PartyPopper } from "lucide-react";
 import { useNow } from "../lib/clock";
-import { dur, getDayInfo, PHASE_META, toHHMM } from "../lib/time";
+import { durShort, getDayInfo, PHASE_META, toHHMM } from "../lib/time";
 import type { Prefs } from "../prefs";
 
-/** Immer sichtbar in der Kopfzeile: wann ist Feierabend und wie lange noch. */
+/** Kopfzeile: nächste Pause und Feierabend – immer im Blick. */
 export function EndPill({ prefs }: { prefs: Prefs }) {
   const now = useNow();
   const d = getDayInfo(now, prefs);
   const tone = PHASE_META[d.phase].tone;
-  let text: string;
-  let short: string;
-  let icon = <Flag size={14} />;
-  if (d.phase === "weekend") {
-    text = short = "Wochenende";
-    icon = <PartyPopper size={14} />;
-  } else if (d.phase === "done") {
-    text = `Feierabend seit ${toHHMM(d.end)}`;
-    short = "Feierabend";
-    icon = <PartyPopper size={14} />;
-  } else if (d.phase === "break") {
-    text = `Pause bis ${toHHMM(d.be)} · Feierabend ${toHHMM(d.end)}`;
-    short = `Pause bis ${toHHMM(d.be)}`;
-    icon = <Coffee size={14} />;
-  } else {
-    text = `Feierabend ${toHHMM(d.end)} · noch ${dur(d.toEnd)}`;
-    short = `${toHHMM(d.end)} · ${dur(d.toEnd)}`;
+
+  if (d.phase === "weekend" || d.phase === "done") {
+    return (
+      <div className="end-pill tone-ok" role="status">
+        <span className="seg">
+          <PartyPopper size={14} />
+          {d.phase === "weekend" ? "Wochenende" : "Feierabend"}
+        </span>
+      </div>
+    );
   }
+
+  const showBreak = d.hasBreak && (d.phase === "before" || d.phase === "morning" || d.phase === "break");
   return (
     <div className={`end-pill tone-${tone}`} role="status">
-      {icon}
-      <span className="pill-long">{text}</span>
-      <span className="pill-short">{short}</span>
+      {showBreak && (
+        <span className={`seg seg-break ${d.phase === "break" ? "is-now" : ""}`}>
+          <Coffee size={14} />
+          {d.phase === "break" ? (
+            <>
+              <b>{durShort(d.be - d.cur)}</b>
+              <span className="pill-extra">Pause</span>
+            </>
+          ) : (
+            <>
+              <b>{toHHMM(d.bs)}</b>
+              <span className="pill-extra">{durShort(d.bs - d.cur)}</span>
+            </>
+          )}
+        </span>
+      )}
+      <span className={`seg ${showBreak ? "pill-extra" : ""}`}>
+        <Flag size={14} />
+        <b>{toHHMM(d.end)}</b>
+        <span className="pill-extra">{durShort(d.toEnd)}</span>
+      </span>
     </div>
   );
 }

@@ -1,14 +1,23 @@
 import type { LucideIcon } from "lucide-react";
 import { Briefcase, CalendarRange, Clock3, Link2, ListTodo, StickyNote, Timer } from "lucide-react";
+import { THEMES, type ThemeId } from "./themes";
+import { DEFAULT_CURSOR, normalizeTraits, type CursorTraits } from "./cursor/traits";
 
 export type WidgetId = "clock" | "workday" | "week" | "focus" | "todo" | "board" | "links";
 /** s = eine Spalte, m = zwei Spalten, l = volle Breite */
 export type WidgetSize = "s" | "m" | "l";
 
+export type FxLevel = "auto" | "high" | "balanced" | "low";
+
 export interface Prefs {
   name: string;
-  theme: "dark" | "light";
+  theme: ThemeId;
+  /** "theme" = Akzentfarbe des Themes */
   accent: string;
+  cursorOn: boolean;
+  cursor: CursorTraits;
+  sound: boolean;
+  fx: FxLevel;
   start: string;
   end: string;
   breakStart: string;
@@ -31,6 +40,7 @@ export const WIDGETS: Record<WidgetId, { title: string; icon: LucideIcon; size: 
 export const WIDGET_IDS = Object.keys(WIDGETS) as WidgetId[];
 
 export const ACCENTS = [
+  { name: "Theme", value: "theme" },
   { name: "Blau", value: "#4f8cff" },
   { name: "Violett", value: "#8b5cf6" },
   { name: "Türkis", value: "#14b8a6" },
@@ -44,8 +54,12 @@ export const BREAK_OPTIONS = ["12:00", "12:15", "12:30", "12:45", "13:00"];
 
 export const DEFAULT_PREFS: Prefs = {
   name: "Julian",
-  theme: "dark",
-  accent: ACCENTS[0].value,
+  theme: "aurora",
+  accent: "theme",
+  cursorOn: true,
+  cursor: DEFAULT_CURSOR,
+  sound: true,
+  fx: "auto",
   start: "08:00",
   end: "17:00",
   breakStart: "12:00",
@@ -58,6 +72,12 @@ export const DEFAULT_PREFS: Prefs = {
 /** Führt gespeicherte Einstellungen mit den Standards zusammen (auch nach Updates mit neuen Widgets). */
 export function normalizePrefs(raw: Partial<Prefs> | null | undefined): Prefs {
   const p = { ...DEFAULT_PREFS, ...(raw ?? {}) };
+  // Alte Werte (hell/dunkel) auf Themes abbilden
+  const legacy = p.theme as string;
+  p.theme = legacy === "light" ? "frost" : THEMES.some((t) => t.id === legacy) ? p.theme : "aurora";
+  if (legacy === "dark" || legacy === "light" || !ACCENTS.some((a) => a.value === p.accent)) p.accent = "theme";
+  p.cursor = normalizeTraits(p.cursor);
+  if (!["auto", "high", "balanced", "low"].includes(p.fx)) p.fx = "auto";
   const order = (p.order ?? []).filter((id): id is WidgetId => WIDGET_IDS.includes(id));
   for (const id of WIDGET_IDS) if (!order.includes(id)) order.push(id);
   return {

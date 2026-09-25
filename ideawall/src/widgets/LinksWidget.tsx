@@ -64,7 +64,7 @@ export const LinksWidget = memo(function LinksWidget() {
         </AnimatePresence>
         {!adding && (
           <button type="button" className="link link-add" onClick={() => setAdding(true)}>
-            <Plus size={15} /> Link hinzufügen
+            <Plus size={15} /> Link
           </button>
         )}
       </div>
@@ -80,8 +80,8 @@ export const LinksWidget = memo(function LinksWidget() {
               add();
             }}
           >
-            <input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Adresse, z. B. github.com" aria-label="Adresse" />
-            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name (optional)" aria-label="Name" />
+            <input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="github.com" aria-label="Adresse" />
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name" aria-label="Name" />
             <button type="submit" className="btn btn-primary btn-sm" disabled={!url.trim()}>
               Speichern
             </button>

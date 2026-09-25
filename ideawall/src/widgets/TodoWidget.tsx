@@ -33,14 +33,14 @@ export const TodoWidget = memo(function TodoWidget() {
           add();
         }}
       >
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Was steht an?" aria-label="Neues To-do" maxLength={140} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Neues To-do" aria-label="Neues To-do" maxLength={140} />
         <button type="submit" className="icon-btn accent" disabled={!draft.trim()} aria-label="Hinzufügen">
           <Plus size={16} />
         </button>
       </form>
 
       {todos.length === 0 ? (
-        <p className="empty">Nichts offen. Genau so darf's sein.</p>
+        <p className="empty">Alles erledigt.</p>
       ) : (
         <Reorder.Group axis="y" values={todos} onReorder={setTodos} className="todo-list">
           <AnimatePresence initial={false}>
@@ -99,10 +99,10 @@ export const TodoWidget = memo(function TodoWidget() {
 
       {todos.length > 0 && (
         <div className="todo-foot">
-          <span className="muted">{open ? `${open} offen` : "Alles erledigt – stark!"}</span>
+          <span className="muted">{open ? `${open} offen` : "Alles erledigt"}</span>
           {doneCount > 0 && (
             <button type="button" className="link-btn" onClick={() => setTodos((a) => a.filter((t) => !t.done))}>
-              Erledigte entfernen
+              Erledigte löschen
             </button>
           )}
         </div>

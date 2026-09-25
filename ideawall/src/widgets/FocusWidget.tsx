@@ -1,9 +1,11 @@
 import { memo, useEffect } from "react";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { Coffee, Pause, Play, RotateCcw } from "lucide-react";
 import { useNow } from "../lib/clock";
 import { usePersistent } from "../lib/usePersistent";
 import { chime, systemNotify } from "../lib/chime";
 import { toast } from "../lib/toast";
+import { getDayInfo } from "../lib/time";
+import type { Prefs } from "../prefs";
 
 interface FocusState {
   minutes: number;
@@ -13,7 +15,7 @@ interface FocusState {
 
 const PRESETS = [15, 25, 50];
 
-export const FocusWidget = memo(function FocusWidget({ title }: { title: string }) {
+export const FocusWidget = memo(function FocusWidget({ title, prefs }: { title: string; prefs: Prefs }) {
   const now = useNow();
   const [f, setF] = usePersistent<FocusState>("focus-v3", { minutes: 25, endsAt: null, remaining: 25 * 60_000 });
   const running = f.endsAt !== null;
@@ -22,6 +24,10 @@ export const FocusWidget = memo(function FocusWidget({ title }: { title: string 
   const mm = String(Math.floor(left / 60_000)).padStart(2, "0");
   const ss = String(Math.floor((left % 60_000) / 1000)).padStart(2, "0");
   const C = 2 * Math.PI * 52;
+  // Mittagspause mitdenken: Hinweis, wenn die Session in die Pause laufen würde.
+  const d = getDayInfo(now, prefs);
+  const toBreak = d.hasBreak && d.phase === "morning" ? d.bs - d.cur : Infinity;
+  const clash = toBreak < left / 60_000;
 
   // Ablauf erkennen – auch wenn die Seite zwischendurch geschlossen war.
   useEffect(() => {
@@ -56,7 +62,7 @@ export const FocusWidget = memo(function FocusWidget({ title }: { title: string 
         <div className="seg" role="group" aria-label="Dauer">
           {PRESETS.map((m) => (
             <button key={m} type="button" className={f.minutes === m ? "is-on" : ""} aria-pressed={f.minutes === m} onClick={() => setF({ minutes: m, endsAt: null, remaining: m * 60_000 })}>
-              {m} min
+              {m}
             </button>
           ))}
         </div>
@@ -77,6 +83,11 @@ export const FocusWidget = memo(function FocusWidget({ title }: { title: string 
             <RotateCcw size={16} />
           </button>
         </div>
+        {(clash || d.phase === "break") && (
+          <span className="focus-note">
+            <Coffee size={13} /> {d.phase === "break" ? "Gerade Mittagspause" : `Pause in ${Math.ceil(toBreak)} min`}
+          </span>
+        )}
       </div>
     </div>
   );

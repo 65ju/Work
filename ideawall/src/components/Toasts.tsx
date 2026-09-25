@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Coffee, PartyPopper, Timer, X } from "lucide-react";
+import { Bell, Coffee, PartyPopper, Timer, Trash2, X } from "lucide-react";
 import { dismiss, useToasts } from "../lib/toast";
 
-const ICONS = { info: Bell, break: Coffee, done: PartyPopper, focus: Timer };
+const ICONS = { info: Bell, break: Coffee, done: PartyPopper, focus: Timer, trash: Trash2 };
 
 export function Toasts() {
   const items = useToasts();
@@ -23,7 +23,19 @@ export function Toasts() {
             >
               <Icon size={18} />
               <span>{t.text}</span>
-              <button type="button" aria-label="Schließen" onClick={() => dismiss(t.id)}>
+              {t.action && (
+                <button
+                  type="button"
+                  className="toast-action"
+                  onClick={() => {
+                    t.action!.run();
+                    dismiss(t.id);
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
+              <button type="button" className="toast-close" aria-label="Schließen" onClick={() => dismiss(t.id)}>
                 <X size={15} />
               </button>
             </motion.div>

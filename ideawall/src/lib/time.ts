@@ -107,3 +107,21 @@ export const PHASE_META: Record<Phase, { label: string; tone: "muted" | "accent"
   final: { label: "Endspurt", tone: "warn" },
   done: { label: "Feierabend", tone: "ok" },
 };
+
+/** Begrüßung passend zur Tageszeit – rund um die eigene Mittagspause „Guten Mittag“. */
+export function greeting(now: Date, d: DayInfo): string {
+  const m = now.getHours() * 60 + now.getMinutes();
+  if (m < 5 * 60 || m >= 22 * 60) return "Gute Nacht";
+  const lunchStart = d.hasBreak ? d.bs - 45 : 11 * 60 + 30;
+  const lunchEnd = d.hasBreak ? d.be : 13 * 60 + 30;
+  if (m >= lunchStart && m < lunchEnd) return "Guten Mittag";
+  if (m < 11 * 60) return "Guten Morgen";
+  if (m < 17 * 60) return "Guten Tag";
+  return "Guten Abend";
+}
+
+/** Kurze Dauer für enge Stellen: „1:48 h“ bzw. „43 min“. */
+export function durShort(min: number) {
+  const m = Math.max(0, Math.ceil(min));
+  return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")} h` : `${m} min`;
+}

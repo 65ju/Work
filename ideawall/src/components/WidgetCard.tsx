@@ -5,6 +5,7 @@ import { WIDGETS, type WidgetId, type WidgetSize } from "../prefs";
 
 interface Props {
   id: WidgetId;
+  index: number;
   size: WidgetSize;
   onSwap: (a: WidgetId, b: WidgetId) => void;
   onStep: (id: WidgetId, dir: -1 | 1) => void;
@@ -17,7 +18,7 @@ interface Props {
  * Karte eines Widgets. Am Griff lässt sie sich frei herumziehen; losgelassen über
  * einem anderen Widget tauschen beide ihre Plätze (mit Layout-Animation).
  */
-export function WidgetCard({ id, size, onSwap, onStep, onResize, onHide, children }: Props) {
+export function WidgetCard({ id, index, size, onSwap, onStep, onResize, onHide, children }: Props) {
   const controls = useDragControls();
   const [dragging, setDragging] = useState(false);
   const target = useRef<HTMLElement | null>(null);
@@ -44,8 +45,19 @@ export function WidgetCard({ id, size, onSwap, onStep, onResize, onHide, childre
       layout="position"
       data-widget={id}
       aria-label={meta.title}
-      className={`card widget size-${size} ${dragging ? "is-dragging" : ""}`}
+      className={`card glass widget size-${size} ${id === "workday" ? "hero" : ""} ${dragging ? "is-dragging" : ""}`}
+      onPointerMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        e.currentTarget.style.setProperty("--mx", `${e.clientX - r.left}px`);
+        e.currentTarget.style.setProperty("--my", `${e.clientY - r.top}px`);
+      }}
+      onPointerLeave={(e) => {
+        e.currentTarget.style.setProperty("--mx", "-999px");
+        e.currentTarget.style.setProperty("--my", "-999px");
+      }}
       style={{ zIndex: dragging ? 40 : 1 }}
+      initial={{ opacity: 0, y: 26, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 240, damping: 28, delay: 0.06 * index } }}
       transition={{ type: "spring", stiffness: 420, damping: 36 }}
       drag
       dragListener={false}

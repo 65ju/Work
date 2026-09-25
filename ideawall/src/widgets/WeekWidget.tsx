@@ -12,8 +12,7 @@ export function WeekWidget({ prefs }: { prefs: Prefs }) {
   const fills = DAYS.map((_, i) => (idx > 4 || i < idx ? 1 : i === idx ? (d.planned ? d.worked / d.planned : 0) : 0));
   const total = Math.round((fills.reduce((a, b) => a + b, 0) / 5) * 100);
   const left = 4 - idx;
-  const text =
-    idx > 4 ? "Wochenende – abschalten ist auch produktiv." : idx === 4 ? "Freitag! Nur noch heute." : `Noch ${left} ${left === 1 ? "Tag" : "Tage"} bis zum Wochenende.`;
+  const text = idx > 4 ? "Wochenende" : idx === 4 ? "Freitag" : `${left} ${left === 1 ? "Tag" : "Tage"} bis Wochenende`;
 
   return (
     <div className="week-widget">
