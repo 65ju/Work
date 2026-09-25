@@ -116,4 +116,40 @@ export const sfx = {
     tone(760, 0.12, { type: "square", gain: 0.02, to: 640 });
   },
   whoosh: () => hiss(0.3, { freq: 400, to: 2400, q: 0.9, gain: 0.08 }),
+  /** Stempel knallt aufs Papier */
+  stamp: () => {
+    tone(90, 0.22, { gain: 0.32, to: 45 });
+    hiss(0.08, { freq: 700, q: 0.8, gain: 0.16, type: "lowpass" });
+    hiss(0.04, { freq: 3500, gain: 0.06, delay: 0.02 });
+  },
+  /** Karte wird vom Kern verschluckt – mit jeder Karte etwas höher */
+  absorb: (i = 0) => {
+    const f = 380 * Math.pow(2, Math.min(i, 24) / 14);
+    tone(f, 0.12, { type: "triangle", gain: 0.06, to: f * 1.5 });
+    hiss(0.05, { freq: 5000, gain: 0.025, type: "highpass" });
+  },
+  /** Kern lädt sich auf */
+  charge: () => {
+    tone(160, 1.1, { type: "sawtooth", gain: 0.025, to: 640 });
+    tone(320, 1.1, { gain: 0.05, to: 1280 });
+    hiss(1.0, { freq: 300, to: 4000, q: 2, gain: 0.05 });
+  },
+  /** Kern fällt zusammen und blitzt */
+  implode: () => {
+    tone(900, 0.25, { gain: 0.08, to: 80 });
+    hiss(0.25, { freq: 4000, to: 200, q: 1, gain: 0.08, delay: 0.02 });
+    tone(55, 0.5, { gain: 0.3, to: 35, delay: 0.24 });
+    hiss(0.5, { freq: 1200, q: 0.5, gain: 0.12, delay: 0.24, type: "lowpass" });
+  },
+  /** Mappe klappt auf */
+  unfold: () => {
+    hiss(0.18, { freq: 1800, to: 900, q: 0.9, gain: 0.08 });
+    tone(220, 0.1, { gain: 0.08, to: 160, delay: 0.14 });
+  },
+  /** Sanfter Erfolgsklang */
+  done: () => {
+    tone(523, 0.18, { type: "triangle", gain: 0.08 });
+    tone(784, 0.26, { type: "triangle", gain: 0.07, delay: 0.09 });
+    tone(1047, 0.36, { gain: 0.05, delay: 0.18 });
+  },
 };

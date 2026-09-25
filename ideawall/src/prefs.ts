@@ -9,6 +9,22 @@ export type WidgetSize = "s" | "m" | "l";
 
 export type FxLevel = "auto" | "high" | "balanced" | "low";
 
+/** Berufsschul-Regel: Wochentag (1 = Mo … 5 = Fr) und in welchen Kalenderwochen. */
+export type Parity = "all" | "odd" | "even";
+export interface SchoolRule {
+  wd: number;
+  weeks: Parity;
+}
+export interface DateRange {
+  from: string;
+  to: string;
+}
+export type RedactKind = "Kunde" | "Person" | "Projekt" | "Firma";
+export interface RedactEntry {
+  term: string;
+  kind: RedactKind;
+}
+
 export interface Prefs {
   name: string;
   theme: ThemeId;
@@ -25,6 +41,15 @@ export interface Prefs {
   order: WidgetId[];
   hidden: WidgetId[];
   sizes: Record<WidgetId, WidgetSize>;
+  /** Berichtsheft */
+  job: string;
+  trainingYear: string;
+  schoolRules: SchoolRule[];
+  schoolStart: string;
+  schoolEnd: string;
+  schoolHolidays: DateRange[];
+  redact: RedactEntry[];
+  reportReminder: boolean;
 }
 
 export const WIDGETS: Record<WidgetId, { title: string; icon: LucideIcon; size: WidgetSize }> = {
@@ -67,6 +92,17 @@ export const DEFAULT_PREFS: Prefs = {
   order: WIDGET_IDS,
   hidden: [],
   sizes: Object.fromEntries(WIDGET_IDS.map((id) => [id, WIDGETS[id].size])) as Record<WidgetId, WidgetSize>,
+  job: "Fachinformatiker für Systemintegration",
+  trainingYear: "",
+  schoolRules: [
+    { wd: 2, weeks: "all" },
+    { wd: 4, weeks: "odd" },
+  ],
+  schoolStart: "07:40",
+  schoolEnd: "14:40",
+  schoolHolidays: [],
+  redact: [],
+  reportReminder: true,
 };
 
 /** Führt gespeicherte Einstellungen mit den Standards zusammen (auch nach Updates mit neuen Widgets). */
@@ -86,6 +122,9 @@ export function normalizePrefs(raw: Partial<Prefs> | null | undefined): Prefs {
     hidden: (p.hidden ?? []).filter((id) => WIDGET_IDS.includes(id)),
     sizes: { ...DEFAULT_PREFS.sizes, ...(p.sizes ?? {}) },
     breakStart: BREAK_OPTIONS.includes(p.breakStart) ? p.breakStart : DEFAULT_PREFS.breakStart,
+    schoolRules: Array.isArray(p.schoolRules) ? p.schoolRules.filter((r) => r && r.wd >= 1 && r.wd <= 5) : DEFAULT_PREFS.schoolRules,
+    schoolHolidays: Array.isArray(p.schoolHolidays) ? p.schoolHolidays.filter((r) => r?.from && r?.to) : [],
+    redact: Array.isArray(p.redact) ? p.redact.filter((r) => r && typeof r.term === "string") : [],
   };
 }
 

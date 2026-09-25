@@ -1,17 +1,23 @@
 import { memo, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { Check, GripVertical, Plus, Trash2 } from "lucide-react";
-import { usePersistent } from "../lib/usePersistent";
 import { uid } from "../lib/storage";
+import { useStore } from "../lib/store";
+import { nowIso, recordDone, todosStore, unrecordDone, type Todo } from "../journal/data";
+import { today } from "../journal/dates";
 
-interface Todo {
-  id: string;
-  text: string;
-  done: boolean;
+const setTodos = todosStore.set;
+
+/** Abhaken wird fürs Berichtsheft mit Uhrzeit festgehalten. */
+function toggle(t: Todo) {
+  const done = !t.done;
+  setTodos((a) => a.map((x) => (x.id === t.id ? { ...x, done, doneAt: done ? nowIso() : undefined } : x)));
+  if (done) recordDone({ key: `todo:${t.id}`, text: t.text, source: "todo" });
+  else unrecordDone(`todo:${t.id}`);
 }
 
 export const TodoWidget = memo(function TodoWidget() {
-  const [todos, setTodos] = usePersistent<Todo[]>("todos-v3", []);
+  const todos = useStore(todosStore);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const open = todos.filter((t) => !t.done).length;
@@ -20,7 +26,7 @@ export const TodoWidget = memo(function TodoWidget() {
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    setTodos((a) => [{ id: uid(), text, done: false }, ...a]);
+    setTodos((a) => [{ id: uid(), text, done: false, created: today() }, ...a]);
     setDraft("");
   };
 
@@ -59,7 +65,7 @@ export const TodoWidget = memo(function TodoWidget() {
                   type="button"
                   className="check"
                   aria-label={t.done ? "Als offen markieren" : "Als erledigt markieren"}
-                  onClick={() => setTodos((a) => a.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))}
+                  onClick={() => toggle(t)}
                 >
                   <AnimatePresence>
                     {t.done && (

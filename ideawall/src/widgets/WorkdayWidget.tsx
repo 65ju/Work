@@ -1,6 +1,6 @@
-import { Coffee, Flag, PartyPopper, Sunrise, UtensilsCrossed } from "lucide-react";
+import { Coffee, Flag, GraduationCap, PartyPopper, Sunrise, UtensilsCrossed } from "lucide-react";
 import { useNow } from "../lib/clock";
-import { dur, durShort, getDayInfo, PHASE_META, toHHMM } from "../lib/time";
+import { dur, durShort, endLabel, getDayInfo, PHASE_META, phaseLabel, toHHMM } from "../lib/time";
 import { Rolling } from "../components/Rolling";
 import type { Prefs } from "../prefs";
 
@@ -22,11 +22,11 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
   let label: string;
   switch (d.phase) {
     case "weekend":
-      big = "Wochenende";
+      big = phaseLabel(d);
       label = "";
       break;
     case "done":
-      big = "Feierabend";
+      big = endLabel(d);
       label = `seit ${toHHMM(d.end)}`;
       break;
     case "break":
@@ -35,11 +35,11 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
       break;
     case "before":
       big = dur(d.start - d.cur);
-      label = `bis Arbeitsbeginn`;
+      label = d.school ? "bis Schulbeginn" : "bis Arbeitsbeginn";
       break;
     default:
       big = dur((d.next?.at ?? d.end) - d.cur);
-      label = d.next?.label === "Mittagspause" ? "bis zur Mittagspause" : "bis Feierabend";
+      label = d.next?.label === "Mittagspause" ? "bis zur Mittagspause" : `bis ${endLabel(d)}`;
   }
 
   const hours: number[] = [];
@@ -51,17 +51,18 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
         <div className="wd-main">
           <span className="phase">
             <span className="phase-dot" />
-            {meta.label}
+            {phaseLabel(d)}
           </span>
           <p className="wd-count">
             {d.phase === "break" && <UtensilsCrossed size={26} className="wd-icon" />}
             {d.phase === "before" && <Sunrise size={26} className="wd-icon" />}
+            {d.school && (d.phase === "morning" || d.phase === "afternoon" || d.phase === "final") && <GraduationCap size={26} className="wd-icon" />}
             <Rolling text={big} />
           </p>
           {label && <p className="muted">{label}</p>}
         </div>
         <div className="wd-end">
-          <span className="wd-end-label">{d.phase === "done" ? <PartyPopper size={14} /> : <Flag size={14} />} Feierabend</span>
+          <span className="wd-end-label">{d.phase === "done" ? <PartyPopper size={14} /> : <Flag size={14} />} {endLabel(d)}</span>
           <span className="wd-end-time">{toHHMM(d.end)}</span>
           {d.phase !== "done" && d.phase !== "weekend" && <span className="muted">in {durShort(d.toEnd)}</span>}
         </div>
@@ -99,14 +100,12 @@ export function WorkdayWidget({ prefs }: { prefs: Prefs }) {
 
       <dl className="wd-stats">
         <div>
-          <dt>Gearbeitet</dt>
+          <dt>{d.school ? "Anwesend" : "Gearbeitet"}</dt>
           <dd>{dur(d.worked)}</dd>
         </div>
         <div className={d.phase === "break" ? "is-break" : ""}>
-          <dt>Pause</dt>
-          <dd>
-            {toHHMM(d.bs)}–{toHHMM(d.be)}
-          </dd>
+          <dt>{d.school ? "Schule" : "Pause"}</dt>
+          <dd>{d.school ? `${toHHMM(d.start)}–${toHHMM(d.end)}` : `${toHHMM(d.bs)}–${toHHMM(d.be)}`}</dd>
         </div>
         <div>
           <dt>Übrig</dt>

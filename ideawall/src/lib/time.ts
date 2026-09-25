@@ -1,9 +1,9 @@
 import type { Prefs } from "../prefs";
+import type { DayKind } from "../journal/data";
+import { iso, toMin } from "../journal/dates";
+import { kindOf } from "../journal/schedule";
 
-export const toMin = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-};
+export { toMin };
 
 export const toHHMM = (min: number) => {
   const m = ((Math.floor(min) % 1440) + 1440) % 1440;
@@ -35,6 +35,8 @@ export type Phase = "weekend" | "before" | "morning" | "break" | "afternoon" | "
 
 export interface DayInfo {
   phase: Phase;
+  kind: DayKind;
+  school: boolean;
   start: number;
   end: number;
   bs: number;
@@ -51,14 +53,17 @@ export interface DayInfo {
 }
 
 /** Berechnet Phase, Countdown-Ziel und Fortschritt des Arbeitstags inklusive Mittagspause. */
-export function getDayInfo(now: Date, p: Pick<Prefs, "start" | "end" | "breakStart">): DayInfo {
-  const start = toMin(p.start);
-  const end = Math.max(start + 30, toMin(p.end));
-  const bs = clamp(toMin(p.breakStart), start, end);
-  const be = clamp(bs + 60, start, end);
+export function getDayInfo(now: Date, p: Pick<Prefs, "start" | "end" | "breakStart" | "schoolRules" | "schoolStart" | "schoolEnd" | "schoolHolidays">): DayInfo {
+  const kind = kindOf(iso(now), p);
+  const school = kind === "school";
+  const start = toMin(school ? p.schoolStart : p.start);
+  const end = Math.max(start + 30, toMin(school ? p.schoolEnd : p.end));
+  // An Schultagen gibt es keine eigene Mittagspause.
+  const bs = school ? end : clamp(toMin(p.breakStart), start, end);
+  const be = school ? end : clamp(bs + 60, start, end);
   const hasBreak = be - bs >= 1;
   const cur = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  const weekend = now.getDay() === 0 || now.getDay() === 6;
+  const weekend = kind !== "work" && kind !== "school";
   const planned = end - start - (be - bs);
   const worked = clamp(Math.min(cur, end) - start, 0, end - start) - clamp(Math.min(cur, be) - bs, 0, be - bs);
 
@@ -79,11 +84,13 @@ export function getDayInfo(now: Date, p: Pick<Prefs, "start" | "end" | "breakSta
         : phase === "break"
           ? { label: "Pausenende", at: be }
           : phase === "morning" || phase === "afternoon" || phase === "final"
-            ? { label: "Feierabend", at: end }
+            ? { label: school ? "Schulschluss" : "Feierabend", at: end }
             : null;
 
   return {
     phase,
+    kind,
+    school,
     start,
     end,
     bs,
@@ -107,6 +114,19 @@ export const PHASE_META: Record<Phase, { label: string; tone: "muted" | "accent"
   final: { label: "Endspurt", tone: "warn" },
   done: { label: "Feierabend", tone: "ok" },
 };
+
+const FREE_LABEL: Partial<Record<DayKind, string>> = { vacation: "Urlaub", sick: "Krank", off: "Frei" };
+
+/** Phasenname passend zur Tagesart (Schule, Urlaub …). */
+export function phaseLabel(d: DayInfo): string {
+  if (d.phase === "weekend") return FREE_LABEL[d.kind] ?? "Wochenende";
+  if (d.school && (d.phase === "morning" || d.phase === "afternoon")) return "Berufsschule";
+  if (d.school && d.phase === "done") return "Schulschluss";
+  if (d.school && d.phase === "before") return "Schultag";
+  return PHASE_META[d.phase].label;
+}
+
+export const endLabel = (d: DayInfo) => (d.school ? "Schulschluss" : "Feierabend");
 
 /** Begrüßung passend zur Tageszeit – rund um die eigene Mittagspause „Guten Mittag“. */
 export function greeting(now: Date, d: DayInfo): string {

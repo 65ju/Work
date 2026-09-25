@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { AnimatePresence, MotionConfig } from "framer-motion";
-import { Eye, MousePointer2, Settings2 } from "lucide-react";
+import { BookMarked, Eye, MousePointer2, Settings2 } from "lucide-react";
 import { DEFAULT_PREFS, normalizePrefs, possessive, WIDGETS, type Prefs, type WidgetId, type WidgetSize } from "./prefs";
 import { themeById, type ThemeId } from "./themes";
 import { usePersistent } from "./lib/usePersistent";
@@ -25,6 +25,14 @@ import { FocusWidget } from "./widgets/FocusWidget";
 import { BoardWidget } from "./widgets/BoardWidget";
 import { TodoWidget } from "./widgets/TodoWidget";
 import { LinksWidget } from "./widgets/LinksWidget";
+import { ArchiveOverlay } from "./components/ArchiveOverlay";
+import { ReportStudio } from "./report/ReportStudio";
+import { useStore } from "./lib/store";
+import { syncTimes } from "./journal/data";
+import { iso, weekOfIso } from "./journal/dates";
+import { dayMinutes, KIND_META, kindOf } from "./journal/schedule";
+import { setSettings, vaultStore } from "./journal/vault";
+import { closeArchive, closeReport, openArchive, uiStore } from "./journal/ui";
 import type { ResolvedFx } from "./lib/fxLevel";
 import type { Theme } from "./themes";
 
@@ -38,6 +46,8 @@ export default function App() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const ui = useStore(uiStore);
+  const vault = useStore(vaultStore);
   const fx = useFxLevel(prefs.fx);
   const theme = themeById(prefs.theme);
   const accent = prefs.accent === "theme" ? theme.vars["--accent"] : prefs.accent;
@@ -56,6 +66,16 @@ export default function App() {
   }, [theme, accent, fx]);
 
   useEffect(() => setSound(prefs.sound), [prefs.sound]);
+
+  // Berichtsheft: Zeiten für die Tagesstände und Einstellungen für den Ordner
+  useEffect(() => {
+    syncTimes({ start: prefs.start, end: prefs.end, breakStart: prefs.breakStart, schoolStart: prefs.schoolStart, schoolEnd: prefs.schoolEnd });
+    const { cursor: _c, order: _o, hidden: _h, sizes: _s, ...rest } = prefs;
+    setSettings(rest, (r) => {
+      const kind = kindOf(r.date, prefs);
+      return { art: KIND_META[kind].label, stunden: dayMinutes(r.date, kind, prefs) / 60 };
+    });
+  }, [prefs]);
 
   useEffect(() => {
     if (!document.title.includes("Fokus")) document.title = title;
@@ -149,7 +169,7 @@ export default function App() {
       case "todo":
         return <TodoWidget />;
       case "board":
-        return <BoardWidget />;
+        return <BoardWidget prefs={prefs} />;
       case "links":
         return <LinksWidget />;
     }
@@ -176,6 +196,20 @@ export default function App() {
           </div>
           <EndPill prefs={prefs} />
           <div className="topbar-tools">
+            <button
+              type="button"
+              data-archive-btn
+              className={`icon-btn archive-btn ${ui.archive ? "is-on" : ""} vault-${vault.status}`}
+              aria-label="Archiv & Berichtsheft"
+              title="Archiv & Berichtsheft"
+              onClick={() => {
+                openArchive(weekOfIso(iso(new Date())));
+                sfx.pop();
+              }}
+            >
+              <BookMarked size={17} />
+              <span className="vault-dot" />
+            </button>
             <button
               type="button"
               className={`icon-btn ${studioOpen ? "is-on" : ""}`}
@@ -241,6 +275,8 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+      <AnimatePresence>{ui.archive && <ArchiveOverlay key="archive" week={ui.archive} prefs={prefs} onClose={closeArchive} />}</AnimatePresence>
+      <AnimatePresence>{ui.report && <ReportStudio key={ui.report} week={ui.report} prefs={prefs} fxLevel={fx} onClose={closeReport} />}</AnimatePresence>
       <AnimatePresence>{themesOpen && <ThemeDrawer current={prefs.theme} onPick={pickTheme} onClose={() => setThemesOpen(false)} />}</AnimatePresence>
       <CursorLayer traits={prefs.cursor} enabled={prefs.cursorOn} themeKey={`${theme.id}-${accent}`} lowPower={fx === "low"} />
     </MotionConfig>

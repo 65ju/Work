@@ -1,32 +1,28 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, useVelocity } from "framer-motion";
-import { Plus, Trash2, X } from "lucide-react";
-import { usePersistent } from "../lib/usePersistent";
+import { GraduationCap, Plus, Trash2, X } from "lucide-react";
 import { uid } from "../lib/storage";
+import { useStore } from "../lib/store";
 import { sfx } from "../lib/sfx";
 import { toast } from "../lib/toast";
 import { fx } from "../cursor/fx";
+import { PAPERS, pinsStore, recordDone, unrecordDone, type Pin } from "../journal/data";
+import { today } from "../journal/dates";
+import { kindOf } from "../journal/schedule";
+import { BoardTimeline, HistoryBoard } from "./BoardHistory";
+import type { Prefs } from "../prefs";
 
-interface Pin {
-  id: string;
-  text: string;
-  /** horizontale Position als Anteil der freien Breite */
-  fx: number;
-  y: number;
-  color: number;
-  rot: number;
-  z: number;
-}
-
-const PAPERS = ["#ffe98a", "#bdf2d5", "#c6e2ff", "#ffd1df", "#e1d3ff", "#f4f0e6"];
-const PIN_W = 196;
-const PIN_H = 158;
-const BOARD_H = 460;
+export const PIN_W = 196;
+export const PIN_H = 158;
+export const BOARD_H = 460;
+const setPins = pinsStore.set;
 
 type Phase = "idle" | "fresh" | "dying";
 
-export const BoardWidget = memo(function BoardWidget() {
-  const [pins, setPins] = usePersistent<Pin[]>("pins-v3", []);
+export const BoardWidget = memo(function BoardWidget({ prefs }: { prefs: Prefs }) {
+  const pins = useStore(pinsStore);
+  /** null = heute (live), sonst ein vergangener Tag im Zeitregler */
+  const [view, setView] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const trashRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -63,10 +59,13 @@ export const BoardWidget = memo(function BoardWidget() {
     const y = Math.min(maxY, Math.max(0, spot.y));
     const id = uid();
     fresh.current.add(id);
+    const day = today();
     setPins((ps) => [
       ...ps,
       {
         id,
+        created: day,
+        school: kindOf(day, prefs) === "school",
         text: "",
         fx: maxX ? x / maxX : 0,
         y,
@@ -78,25 +77,25 @@ export const BoardWidget = memo(function BoardWidget() {
     sfx.whoosh();
   };
 
-  const update = useCallback((id: string, patch: Partial<Pin>) => setPins((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))), [setPins]);
+  const update = useCallback((id: string, patch: Partial<Pin>) => setPins((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))), []);
 
-  const remove = useCallback(
-    (pin: Pin, silent = false) => {
-      setPins((ps) => ps.filter((p) => p.id !== pin.id));
-      setShowTrash(false);
-      if (!silent && pin.text) {
-        toast("Zettel entsorgt", "trash", 6000, {
-          label: "Rückgängig",
-          run: () => {
-            fresh.current.add(pin.id);
-            setPins((ps) => [...ps, { ...pin, z: ps.reduce((m, p) => Math.max(m, p.z), 0) + 1 }]);
-            sfx.whoosh();
-          },
-        });
-      }
-    },
-    [setPins],
-  );
+  const remove = useCallback((pin: Pin, silent = false) => {
+    setPins((ps) => ps.filter((p) => p.id !== pin.id));
+    setShowTrash(false);
+    if (!silent && pin.text) {
+      // Weggeworfen = erledigt (fürs Berichtsheft)
+      recordDone({ key: `pin:${pin.id}`, text: pin.text, source: "pin", school: pin.school });
+      toast("Zettel erledigt", "trash", 6000, {
+        label: "Rückgängig",
+        run: () => {
+          unrecordDone(`pin:${pin.id}`);
+          fresh.current.add(pin.id);
+          setPins((ps) => [...ps, { ...pin, z: ps.reduce((m, p) => Math.max(m, p.z), 0) + 1 }]);
+          sfx.whoosh();
+        },
+      });
+    }
+  }, []);
 
   const front = useCallback(
     (id: string) =>
@@ -106,7 +105,7 @@ export const BoardWidget = memo(function BoardWidget() {
         if (!pin || pin.z === top) return ps;
         return ps.map((p) => (p.id === id ? { ...p, z: top + 1 } : p));
       }),
-    [setPins],
+    [],
   );
 
   /** Mittelpunkt des Papierkorbs in Board-Koordinaten. */
@@ -126,21 +125,26 @@ export const BoardWidget = memo(function BoardWidget() {
   }, []);
 
   const trashVisible = dragging !== null || showTrash;
+  const past = view !== null && view < today();
 
   return (
     <div className="board-wrap">
       <div
         ref={ref}
-        className={`board ${dragging ? "is-active" : ""}`}
+        className={`board ${dragging ? "is-active" : ""} ${past ? "is-past" : ""}`}
         style={{ height: BOARD_H }}
         onDoubleClick={(e) => {
-          if (e.target !== e.currentTarget) return;
+          if (e.target !== e.currentTarget || past) return;
           const r = e.currentTarget.getBoundingClientRect();
           add({ x: e.clientX - r.left - PIN_W / 2, y: e.clientY - r.top - 24 });
         }}
       >
         <AnimatePresence>
-          {pins.length === 0 && (
+          {past && <HistoryBoard key="history" date={view} live={pins} maxX={maxX} onToday={() => setView(null)} />}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!past && pins.length === 0 && (
             <motion.button
               type="button"
               className="board-empty"
@@ -156,6 +160,7 @@ export const BoardWidget = memo(function BoardWidget() {
         </AnimatePresence>
 
         {w > 0 &&
+          !past &&
           pins.map((p) => (
             <PinNote
               key={p.id}
@@ -177,7 +182,7 @@ export const BoardWidget = memo(function BoardWidget() {
             />
           ))}
 
-        {pins.length > 0 && (
+        {!past && pins.length > 0 && (
           <button type="button" className="board-add" aria-label="Neuer Zettel" title="Neuer Zettel" onClick={() => add()}>
             <Plus size={18} />
           </button>
@@ -201,7 +206,7 @@ export const BoardWidget = memo(function BoardWidget() {
           )}
         </AnimatePresence>
       </div>
-
+      <BoardTimeline prefs={prefs} view={view} onView={setView} />
     </div>
   );
 });
@@ -452,7 +457,7 @@ const PinNote = memo(function PinNote({ pin, maxX, maxY, fresh, onFreshDone, onU
                 return;
               }
               if (t !== pin.text) {
-                onUpdate(pin.id, { text: t });
+                onUpdate(pin.id, pin.text ? { text: t, edited: today() } : { text: t });
                 sfx.pop();
               }
             }}
@@ -468,6 +473,19 @@ const PinNote = memo(function PinNote({ pin, maxX, maxY, fresh, onFreshDone, onU
         )}
         <span className="note-crease" />
         <span className="note-curl" />
+        <AnimatePresence>
+          {pin.school && (
+            <motion.span
+              className="note-stamp"
+              initial={{ opacity: 0, scale: 2.2, rotate: -24 }}
+              animate={{ opacity: 1, scale: 1, rotate: -9 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ type: "spring", stiffness: 700, damping: 22 }}
+            >
+              Schule
+            </motion.span>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <motion.span className="pushpin" style={{ y: pinY, scale: pinScale }}>
@@ -501,6 +519,23 @@ const PinNote = memo(function PinNote({ pin, maxX, maxY, fresh, onFreshDone, onU
               />
             ))}
             <span className="tools-sep" />
+            <button
+              type="button"
+              className={`tool-stamp ${pin.school ? "is-on" : ""}`}
+              aria-label="Schul-Stempel"
+              title="Schule"
+              aria-pressed={!!pin.school}
+              onClick={() => {
+                onUpdate(pin.id, { school: !pin.school });
+                if (!pin.school) {
+                  sfx.stamp();
+                  const cc = center();
+                  if (cc) fx.dust(cc.right - 40, cc.bottom - 30, 6);
+                } else sfx.tap();
+              }}
+            >
+              <GraduationCap size={14} />
+            </button>
             <button type="button" className="tool-del" aria-label="Zettel entsorgen" onClick={() => void destroy()}>
               <X size={14} />
             </button>

@@ -6,6 +6,7 @@ import { toHHMM, toMin } from "../lib/time";
 import { chime } from "../lib/chime";
 import { sfx } from "../lib/sfx";
 import { themeById } from "../themes";
+import { JournalSettings } from "./JournalSettings";
 
 interface Props {
   prefs: Prefs;
@@ -147,6 +148,8 @@ export function SettingsPanel({ prefs, setPrefs, onClose, fxResolved }: Props) {
             <RotateCcw size={14} /> Layout
           </button>
         </Row>
+
+        <JournalSettings prefs={prefs} set={set} />
       </div>
     </motion.div>
   );
